@@ -16,7 +16,9 @@ from scipy.ndimage import binary_fill_holes
 import nibabel as nib
 from nibabel.processing import *
 from copy import deepcopy
-from lungmask import *
+from lungmask_old import *
+from lungmask import lungmask
+
 
 def import_set(tmp, file):
     f = h5py.File(file, 'r')
@@ -54,8 +56,8 @@ def up_scroll_alt(event):
         if (slider2.val + 2 > data.shape[0]):
             1
         # print("Whoops, end of stack", print(slider2.val))
-        else:
-            slider2.set_val(slider2.val + 1)
+    else:
+        slider2.set_val(slider2.val + 1)
 
 
 def down_scroll_alt(event):
@@ -63,8 +65,8 @@ def down_scroll_alt(event):
         if (slider2.val - 1 < 0):
             1
         # print("Whoops, end of stack", print(slider2.val))
-        else:
-            slider2.set_val(slider2.val - 1)
+    else:
+        slider2.set_val(slider2.val - 1)
 
 
 def up_scroll(event):
@@ -72,8 +74,8 @@ def up_scroll(event):
         if (slider2.val + 2 > data.shape[0]):
             1
         # print("Whoops, end of stack", print(slider2.val))
-        else:
-            slider2.set_val(slider2.val + 1)
+    else:
+        slider2.set_val(slider2.val + 1)
 
 
 def down_scroll(event):
@@ -81,17 +83,21 @@ def down_scroll(event):
         if (slider2.val - 1 < 0):
             1
         # print("Whoops, end of stack", print(slider2.val))
-        else:
-            slider2.set_val(slider2.val - 1)
+    else:
+        slider2.set_val(slider2.val - 1)
 
 
+def minmaxscale(tmp):
+    if len(np.unique(tmp)) > 1:
+        tmp = (tmp - tmp.min()) / (tmp.max() - tmp.min())
+    return tmp
 
 
 if __name__ == "__main__":
 
     data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
 
-    sets = ["Healthy", "Sick"]
+    sets = ["negative", "positive"] #["Healthy", "Sick"]
 
     locs = []
     for i, curr_set in enumerate(sets):
@@ -106,16 +112,51 @@ if __name__ == "__main__":
 
         print(name)
 
-        itkimage = sitk.ReadImage(curr_path)
-        data = sitk.GetArrayFromImage(itkimage).astype(np.float32)
+        # read CT
+        nib_volume = nib.load(curr_path)
+        new_spacing = [1., 1., 2.]
+        resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
+        data = resampled_volume.get_data().astype('float32')
+        
+        # resize to get (512, 512) output images
+        from scipy.ndimage import zoom
+        img_size = 512
+        data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+
+        # fix orientation
+        
+        #data = np.rot90(data, k=1, axes=(0, 1))
+        #data = np.flip(data, axis=0)
+        #data = np.flip(data, axis=-1)
+        data = np.flip(data, axis=0)
+        data = np.flip(data, axis=1)
+        #data = np.rot90(data, k=2, axes=(0, 1))
+        #data = np.flip(data, axis=-1)
+        #data = np.rot90(data, k=1, axes=(0, 1))
+        #data = np.flip(data, axis=0)
+
+        # get z axis first
+        data = np.swapaxes(data, 0, -1)
 
         data_orig = data.copy()
 
+        # pre-processing
         data_orig[data_orig < -1024] = -1024
         data_orig[data_orig > 1024] = 1024
 
-        gt = lungmask3D(data, morph=False)
+        # intensity normalize [0, 1]
+        data_orig = minmaxscale(data_orig)
 
+        #gt = lungmask3D(data.astype(np.float32), morph=False)
+        img = sitk.ReadImage(curr_path)
+        gt = lungmask.apply(img)
+        gt[gt > 0] = 1
+        data_shapes = data.shape
+        gt_shapes = gt.shape
+        gt = zoom(gt, [data_shapes[0] / gt_shapes[0],\
+                data_shapes[1] / gt_shapes[1],\
+                data_shapes[2] / data_shapes[2]], order=0)
+    
         # generate boundary image
         gt_b = np.zeros_like(gt)
         for i in range(gt.shape[0]):

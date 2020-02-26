@@ -2,3 +2,4 @@
 output/
 data/
 python/venv
+python/__pycache__
