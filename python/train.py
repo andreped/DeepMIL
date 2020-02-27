@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.optimizers import SGD,Adam
 from tensorflow.python.keras.regularizers import l2
-from tensorflow.python.keras.layers import Input, Dense, Layer, Dropout, Conv2D, MaxPooling2D, Flatten, multiply
+from tensorflow.python.keras.layers import Input, Dense, Layer, Dropout, Conv2D, MaxPooling2D, Flatten, multiply, BatchNormalization
 import numpy as np
 from metrics import bag_accuracy, bag_loss
 from custom_layers import Mil_Attention, Last_Sigmoid
@@ -35,8 +35,8 @@ if __name__ == '__main__':
     img_size = 256
     input_dim = (img_size, img_size, 1)
     weight_decay = 0.0005
-    useGated = False
-    lr = 5e-4
+    useGated = True
+    lr = 5e-5
     batch_size = 1
     nb_classes = 2
     slices = 1
@@ -103,22 +103,39 @@ if __name__ == '__main__':
     # define model
     data_input = Input(shape=input_dim, dtype='float32', name='input')
     conv1 = Conv2D(16, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(data_input)
+    conv1 = BatchNormalization()(conv1)
+    conv1 = Conv2D(16, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv1)
+    conv1 = BatchNormalization()(conv1)
     conv1 = MaxPooling2D((2, 2))(conv1)
 
     conv2 = Conv2D(32, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv1)
+    conv2 = BatchNormalization()(conv2)
+    conv2 = Conv2D(32, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv2)
+    conv2 = BatchNormalization()(conv2)
     conv2 = MaxPooling2D((2, 2))(conv2)
 
     conv3 = Conv2D(64, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv2)
+    conv3 = BatchNormalization()(conv3)
+    conv3 = Conv2D(64, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv3)
+    conv3 = BatchNormalization()(conv3)
     conv3 = MaxPooling2D((2, 2))(conv3)
 
     conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv3)
+    conv4 = BatchNormalization()(conv4)
+    conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
+    conv4 = BatchNormalization()(conv4)
     conv4 = MaxPooling2D((2, 2))(conv4)
+    
+    conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
+    conv5 = BatchNormalization()(conv5)
+    conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv5)
+    conv5 = BatchNormalization()(conv5)
+    conv5 = MaxPooling2D((2, 2))(conv5)
 
-
-    x = Flatten()(conv3)
+    x = Flatten()(conv5)
 
     fc1 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name='fc1')(x)
-    fc1 = Dropout(0.5)(fc1)
+    #fc1 = Dropout(0.5)(fc1)
 
     alpha = Mil_Attention(L_dim=128, output_dim=1, kernel_regularizer=l2(weight_decay), name='alpha', use_gated=useGated)(fc1)
     x_mul = multiply([alpha, fc1])

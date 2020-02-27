@@ -182,18 +182,20 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             filename = data_path + filename + "/"
 
             bag_batch = []
-            #bag_label = []
+            bag_label = []
+
+            tmp_bag = []
 
             # randomly extract bag_batch number of samples from
             for file in os.listdir(filename):
 
                 f = h5py.File(filename + file, 'r')
                 input_im = np.array(f['data']).astype(np.float32)
-                output = np.array(f['output']).astype(np.float32)
+                #output = np.array(f['output']).astype(np.float32)
                 f.close()
 
-                    #input_im = np.squeeze(input_im, axis=0)
-                    #output = np.squeeze(output, axis=0)
+                #input_im = np.squeeze(input_im, axis=0)
+                #output = np.squeeze(output, axis=0)
 
                 # apply specified agumentation on both image stack and ground truth
                 if 'rotate' in aug:  # -> do this last maybe?
@@ -222,9 +224,9 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 #print(output)
 
                 # add augmented sample to batch
-                bag_batch.append(input_im)
+                #bag_batch.append(input_im)
                 #bag_label.append(output)
-
+                tmp_bag.append(input_im)
                 #del input_im, output
 
                 '''
@@ -240,11 +242,32 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 #if batch == bag_size:
                 #    batch = 0
             
-            # flip GT (did I do something wrong with the labelling?)
-            #output = 1 - output
+            #print("---")
+            #print(filename)
+            f = h5py.File(filename + file, 'r')
+            #input_im = np.array(f['data']).astype(np.float32)
+            output = np.array(f['output']).astype(np.float32)
+            f.close()
+            #tmp_bag = np.concatenate(tmp_bag)
+            #print(tmp_bag.shape)
+            bag_batch.append(tmp_bag) #tmp_bag.copy() #.append(tmp_bag)
+            #print(len(tmp_bag))
+            #print()
+            #bag_batch = tmp_bag.copy()
+            #bag_label.append([output])
+            bag_batch = tmp_bag.copy()
             bag_label = [output]
-            yield bag_batch, bag_label 
 
+            batch += 1
+            if batch == batch_size:
+                out_batch = bag_batch.copy()
+                out_label = bag_label.copy()
+                batch = 0
+
+                bag_label = []
+                bag_batch = []
+                tmp_bag = []
+                yield out_batch, out_label
 
 def batch_length(file_list):
     length = len(file_list)

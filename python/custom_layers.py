@@ -90,10 +90,10 @@ class Mil_Attention(Layer):
     def get_config(self):
         config = {
             'output_dim': self.output_dim,
-            #'v_initializer': initializers.serialize(self.V.initializer),
-            #'w_initializer': initializers.serialize(self.w.initializer),
-            #'v_regularizer': regularizers.serialize(self.v_regularizer),
-            #'w_regularizer': regularizers.serialize(self.w_regularizer),
+            'v_initializer': self.V.initializer, #initializers.serialize(self.V.initializer),
+            'w_initializer': self.w.initializer, #initializers.serialize(self.w.initializer),
+            'v_regularizer': self.v_regularizer, #regularizers.serialize(self.v_regularizer),
+            'w_regularizer': self.w_regularizer, #regularizers.serialize(self.w_regularizer),
             'use_bias': self.use_bias
         }
         base_config = super(Mil_Attention, self).get_config()
