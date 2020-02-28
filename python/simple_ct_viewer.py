@@ -94,6 +94,8 @@ def minmaxscale(tmp):
 
 
 if __name__ == "__main__":
+    
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0" # -1
 
     data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
 
@@ -113,7 +115,7 @@ if __name__ == "__main__":
         print(name)
 
         # read CT
-        nib_volume = nib.load(curr_path)
+        nib_volume = nib.load(name)
         new_spacing = [1., 1., 2.]
         resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
         data = resampled_volume.get_data().astype('float32')
@@ -148,7 +150,7 @@ if __name__ == "__main__":
         data_orig = minmaxscale(data_orig)
 
         #gt = lungmask3D(data.astype(np.float32), morph=False)
-        img = sitk.ReadImage(curr_path)
+        img = sitk.ReadImage(name)
         gt = lungmask.apply(img)
         gt[gt > 0] = 1
         data_shapes = data.shape

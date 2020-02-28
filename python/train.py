@@ -34,10 +34,10 @@ if __name__ == '__main__':
     
     img_size = 256
     input_dim = (img_size, img_size, 1)
-    weight_decay = 0.0005
+    weight_decay = 0 #0.0005
     useGated = True
-    lr = 5e-5
-    batch_size = 1
+    lr = 1e-4 #5e-5
+    batch_size = 1#16
     nb_classes = 2
     slices = 1
     window = 256
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     name = curr_date + "binary_healthy_sick_cancer_" + str(img_size)
 
     # paths
-    data_path = "/home/andrep/workspace/DeepMIL/data/260220_dim_2_binary_healthy_sick_lungmask_False/"
+    data_path = "/home/andrep/workspace/DeepMIL/data/280220_dim_2_binary_healthy_sick_lungmask_False/"
     save_model_path = '/home/andrep/workspace/DeepMIL/output/models/'
     history_path = '/home/andrep/workspace/DeepMIL/output/history/'
     datasets_path = '/home/andrep/workspace/DeepMIL/output/datasets/'
@@ -135,10 +135,16 @@ if __name__ == '__main__':
     x = Flatten()(conv5)
 
     fc1 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name='fc1')(x)
-    #fc1 = Dropout(0.5)(fc1)
+    #fc1 = BatchNormalization()(fc1)
+    fc1 = Dropout(0.5)(fc1)
+    
+    # 64 dense on both before I went to sleep
+    fc2 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name="fc2")(x)
+    #fc2 = BatchNormalization()(fc2)
+    fc2 = Dropout(0.5)(fc2)
 
     alpha = Mil_Attention(L_dim=128, output_dim=1, kernel_regularizer=l2(weight_decay), name='alpha', use_gated=useGated)(fc1)
-    x_mul = multiply([alpha, fc1])
+    x_mul = multiply([alpha, fc2])
 
     out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
     model = Model(inputs=[data_input], outputs=[out])
@@ -169,7 +175,7 @@ if __name__ == '__main__':
         monitor='val_loss',
         verbose=0,
         save_best_only=True,
-        save_weights_only=False,
+        save_weights_only=True, # <- DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
         mode='auto',  # 'auto',
         period=1
     )

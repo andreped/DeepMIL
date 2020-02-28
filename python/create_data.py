@@ -31,7 +31,7 @@ def func(path):
     #curr_path = all_data_path + curr_ct + ".nii.gz"
 
     # read CT
-    nib_volume = nib.load(curr_path)
+    nib_volume = nib.load(curr_ct)
     new_spacing = [1., 1., 2.]
     resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
     data = resampled_volume.get_data().astype('float32')
@@ -57,7 +57,7 @@ def func(path):
     
     if mask_flag:
         # mask data to only keep lung area
-        img = sitk.ReadImage(curr_path)
+        img = sitk.ReadImage(curr_ct)
         gt = lungmask.apply(img)
         gt[gt > 0] = 1
         data_shapes = data.shape
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     dates = dates.strftime("%d%m") + dates.strftime("%Y")[:2]
 
     dim = 2
-    mask_flag = True #True
+    mask_flag = False #True
 
     data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
     datasets_path = "/home/andrep/workspace/DeepMIL/data/"

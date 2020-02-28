@@ -181,13 +181,17 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
         for filename in file_list:
             filename = data_path + filename + "/"
 
-            bag_batch = []
-            bag_label = []
+            #bag_batch = []
+            #bag_label = []
 
             tmp_bag = []
 
+            # get slices
+            #slices = os.listdir(filename)
+            #np.random.shuffle(slices)
+
             # randomly extract bag_batch number of samples from
-            for file in os.listdir(filename):
+            for file in os.listdir(filename): # <- perhaps shuffle the order? Does that makes sense?
 
                 f = h5py.File(filename + file, 'r')
                 input_im = np.array(f['data']).astype(np.float32)
@@ -242,6 +246,11 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 #if batch == bag_size:
                 #    batch = 0
             
+            # bag size
+            #tmp_bag = np.array(tmp_bag)
+            #np.random.shuffle(tmp_bag)
+            #tmp_bag = list(tmp_bag[:100])
+
             #print("---")
             #print(filename)
             f = h5py.File(filename + file, 'r')
@@ -250,13 +259,26 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             f.close()
             #tmp_bag = np.concatenate(tmp_bag)
             #print(tmp_bag.shape)
-            bag_batch.append(tmp_bag) #tmp_bag.copy() #.append(tmp_bag)
+            bag_batch = tmp_bag.copy() #.append((np.concatenate(tmp_bag))) #tmp_bag.copy() #.append(tmp_bag)
             #print(len(tmp_bag))
             #print()
             #bag_batch = tmp_bag.copy()
             #bag_label.append([output])
-            bag_batch = tmp_bag.copy()
-            bag_label = [output]
+            #bag_batch.append(()tmp_bag.copy()
+            #print("---")
+            #print(output)
+            #print(output[0])
+            bag_label = [output] #.append(output[0]) #*np.ones(len(tmp_bag))) #output*np.ones(len(tmp_bag)))
+            #a = tmp_bag.copy()
+            #b = output*np.ones(len(tmp_bag))
+                        
+            #bag_batch = tmp_bag.copy()
+            #bag_label = [output]
+            #print()
+            #print(len(tmp_bag))
+            #print(output)
+            #print(len(a))
+            #print(len(b))
 
             batch += 1
             if batch == batch_size:
@@ -267,6 +289,16 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 bag_label = []
                 bag_batch = []
                 tmp_bag = []
+                
+                #out_batch = np.concatenate(out_batch)
+                #out_label = out_label.flatten()
+                #print("\n Finished: \n")
+                #print(out_label)
+                #print(len(out_batch))
+                #print(out_batch[0].shape)
+                #out_batch = np.array(out_batch)
+                #out_label = np.array(out_label)
+                #print(out_label.shape)
                 yield out_batch, out_label
 
 def batch_length(file_list):
