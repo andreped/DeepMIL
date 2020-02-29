@@ -54,7 +54,7 @@ def func(path):
 
     # get z axis first
     data = np.swapaxes(data, 0, -1)
-    
+
     if mask_flag:
         # mask data to only keep lung area
         img = sitk.ReadImage(curr_ct)
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     dim = 2
     mask_flag = False #True
 
-    data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
-    datasets_path = "/home/andrep/workspace/DeepMIL/data/"
+    data_path = "/mnt/data/healthy_sick/"
+    datasets_path = "/home/tan/Documents/PhD/DeepMIL/data/"
     end_path = datasets_path + dates + "_" + "dim_" + str(dim) + "_binary_healthy_sick" +\
             "_lungmask_" + str(mask_flag) + "/"
 
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     #locs = locs[index]
     #gts = gts[index]
 
-    proc_num = 16 # 16
+    proc_num = 8 # 16
     p = mp.Pool(proc_num)
     num_tasks = len(locs)
     r = list(tqdm(p.imap(func, locs), "CT", total=num_tasks))  # list(tqdm(p.imap(func,gts),total=num_tasks))

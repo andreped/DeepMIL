@@ -1,4 +1,5 @@
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.optimizers import SGD,Adam
 from tensorflow.python.keras.regularizers import l2
@@ -28,10 +29,16 @@ def upsample_balance(tmps):
 
 
 if __name__ == '__main__':
-    
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
     # current date
     curr_date = "_".join(date.today().strftime("%d/%m/%Y").split("/")[:2]) + "_"
-    
+    #config = tf.ConfigProto()
+    #config.gpu_options.allow_growth = True
+    #config.log_device_placement = True
+
+    #sess = tf.Session(config=config)
+
     img_size = 256
     input_dim = (img_size, img_size, 1)
     weight_decay = 0 #0.0005
@@ -45,10 +52,10 @@ if __name__ == '__main__':
     name = curr_date + "binary_healthy_sick_cancer_" + str(img_size)
 
     # paths
-    data_path = "/home/andrep/workspace/DeepMIL/data/280220_dim_2_binary_healthy_sick_lungmask_False/"
-    save_model_path = '/home/andrep/workspace/DeepMIL/output/models/'
-    history_path = '/home/andrep/workspace/DeepMIL/output/history/'
-    datasets_path = '/home/andrep/workspace/DeepMIL/output/datasets/'
+    data_path = "/home/tan/Documents/PhD/DeepMIL/data/280220_dim_2_binary_healthy_sick_lungmask_False/"
+    save_model_path = '/home/tan/Documents/PhD/DeepMIL/output/models/'
+    history_path = '/home/tan/Documents/PhD/DeepMIL/output/history/'
+    datasets_path = '/home/tan/Documents/PhD/DeepMIL/output/datasets/'
 
     print("\n\n\n")
 
@@ -125,7 +132,7 @@ if __name__ == '__main__':
     conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
     conv4 = BatchNormalization()(conv4)
     conv4 = MaxPooling2D((2, 2))(conv4)
-    
+
     conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
     conv5 = BatchNormalization()(conv5)
     conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv5)
@@ -137,13 +144,13 @@ if __name__ == '__main__':
     fc1 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name='fc1')(x)
     #fc1 = BatchNormalization()(fc1)
     fc1 = Dropout(0.5)(fc1)
-    
+
     # 64 dense on both before I went to sleep
-    fc2 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name="fc2")(x)
+    fc2 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name="fc2")(fc1)
     #fc2 = BatchNormalization()(fc2)
     fc2 = Dropout(0.5)(fc2)
 
-    alpha = Mil_Attention(L_dim=128, output_dim=1, kernel_regularizer=l2(weight_decay), name='alpha', use_gated=useGated)(fc1)
+    alpha = Mil_Attention(L_dim=128, output_dim=1, kernel_regularizer=l2(weight_decay), name='alpha', use_gated=useGated)(fc2)
     x_mul = multiply([alpha, fc2])
 
     out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
