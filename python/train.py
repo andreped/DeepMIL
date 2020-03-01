@@ -29,23 +29,36 @@ def upsample_balance(tmps):
 
 if __name__ == '__main__':
     
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    
+    import tensorflow as tf
+    # from keras.backend.tensorflow_backend import set_session
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+    config.log_device_placement = True  # to log device placement (on which device the operation ran)
+                                        # (nothing gets printed in Jupyter, only if you run it standalone)
+    sess = tf.Session(config=config)
+    #set_session(sess)  # set this TensorFlow session as the default session for Keras
+
+
     # current date
     curr_date = "_".join(date.today().strftime("%d/%m/%Y").split("/")[:2]) + "_"
     
     img_size = 256
     input_dim = (img_size, img_size, 1)
-    weight_decay = 0 #0.0005
-    useGated = True
+    weight_decay = 0 #0.0005 #0.0005
+    useGated = False #False # Default: Frue
     lr = 1e-4 #5e-5
     batch_size = 1#16
     nb_classes = 2
     slices = 1
     window = 256
+    lung_flag = False #True
 
     name = curr_date + "binary_healthy_sick_cancer_" + str(img_size)
 
     # paths
-    data_path = "/home/andrep/workspace/DeepMIL/data/280220_dim_2_binary_healthy_sick_lungmask_False/"
+    data_path = "/home/andrep/workspace/DeepMIL/data/280220_dim_2_binary_healthy_sick_lungmask_" + str(lung_flag) + "/"
     save_model_path = '/home/andrep/workspace/DeepMIL/output/models/'
     history_path = '/home/andrep/workspace/DeepMIL/output/history/'
     datasets_path = '/home/andrep/workspace/DeepMIL/output/datasets/'
@@ -133,17 +146,17 @@ if __name__ == '__main__':
     conv5 = MaxPooling2D((2, 2))(conv5)
 
     x = Flatten()(conv5)
-
+    
+    # fully-connected layers
     fc1 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name='fc1')(x)
     #fc1 = BatchNormalization()(fc1)
     fc1 = Dropout(0.5)(fc1)
-    
-    # 64 dense on both before I went to sleep
-    fc2 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name="fc2")(x)
+
+    fc2 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name="fc2")(fc1)
     #fc2 = BatchNormalization()(fc2)
     fc2 = Dropout(0.5)(fc2)
 
-    alpha = Mil_Attention(L_dim=128, output_dim=1, kernel_regularizer=l2(weight_decay), name='alpha', use_gated=useGated)(fc1)
+    alpha = Mil_Attention(L_dim=128, output_dim=1, kernel_regularizer=l2(weight_decay), name='alpha', use_gated=useGated)(fc2) # fc1 or fc2?
     x_mul = multiply([alpha, fc2])
 
     out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
@@ -185,11 +198,11 @@ if __name__ == '__main__':
         def on_train_begin(self, logs={}):
             self.losses = []
             self.losses.append(['loss', 'val_loss',
-                                'acc', 'val_acc'])
+                                'bag_accuracy', 'val_bag_accuracy'])
 
         def on_epoch_end(self, batch, logs={}):
             self.losses.append([logs.get('loss'), logs.get('val_loss'),
-                                logs.get('acc'), logs.get('val_acc')])
+                                logs.get('bag_accuracy'), logs.get('val_bag_accuracy')])
             # save history:
             f = h5py.File((history_path + 'history_' + name + '.h5'), 'w')
             f.create_dataset("history", data=np.array(self.losses).astype('|S9'), compression="gzip",

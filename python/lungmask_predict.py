@@ -3,7 +3,7 @@ import subprocess as sp
 from tqdm import tqdm
 
 data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
-lungmask_path = "/mnt/EncryptedPathology/DeepMil/healthy_sick_lungmask/"
+lungmask_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick_lungmask/"
 
 if not os.path.exists(lungmask_path):
     os.makedirs(lungmask_path)

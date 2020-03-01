@@ -57,19 +57,25 @@ def func(path):
     
     if mask_flag:
         # mask data to only keep lung area
-        img = sitk.ReadImage(curr_ct)
-        gt = lungmask.apply(img)
+        gt_nib_volume = nib.load(data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
+        resampled_volume = resample_to_output(gt_nib_volume, new_spacing, order=0)
+        gt = resampled_volume.get_data().astype('float32')
+
+        # fix orientation
+        gt = np.flip(gt, axis=1)
+        gt = np.flip(gt, axis=0)
+
+        # get z axis first
+        gt = np.swapaxes(gt, 0, -1)
+
         gt[gt > 0] = 1
         data_shapes = data.shape
         gt_shapes = gt.shape
         gt = zoom(gt, [data_shapes[0] / gt_shapes[0],\
                 data_shapes[1] / gt_shapes[1],\
-                data_shapes[2] / data_shapes[2]], order=0)
-        data[gt == 0] = 0
-        del gt, img, gt_shapes, data_shapes
-
-    # get trained encoder
-    #model = VGG16(include_top=False, weights='imagenet', input_shape=(512, 512, 3))
+                data_shapes[2] / gt_shapes[2]], order=0)
+        data[gt == 0] = 0 # mask CT with lung mask
+        del gt_shapes, data_shapes
 
     # for each CT, make a folder and store each sample in its own respective file
     curr_end_path = end_path + str(class_val) + "_" + curr_id + "/"
@@ -80,20 +86,10 @@ def func(path):
         for i in range(data.shape[0]):
             if np.count_nonzero(data[i]) == 0:
                 continue
-            #print(i)
-            #tmp = data[i]
-            #print()
-            #print(tmp.shape)
-            #tmp = np.repeat(tmp[..., np.newaxis], 3, -1)
-            #print(tmp.shape)
-            #tmp = np.expand_dims(tmp, axis=0)
-            #print(tmp.shape)
-            #features = model.predict(tmp).flatten()
             with h5py.File(curr_end_path + str(i) + ".h5", "w") as f:
                 f.create_dataset("data", data=data[i].astype(np.float32), compression="gzip", compression_opts=4)
-                #f.create_dataset("features/" + str(i), data=features.astype(np.float32), compression="gzip", compression_opts=4)
                 f.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
-
+                f.create_dataset("lungmask", data=gt[i].astype(np.float32), compression="gzip", compression_opts=4)
 
 if __name__ == '__main__':
 
@@ -102,7 +98,7 @@ if __name__ == '__main__':
     dates = dates.strftime("%d%m") + dates.strftime("%Y")[:2]
 
     dim = 2
-    mask_flag = False #True
+    mask_flag = True #True or False
 
     data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
     datasets_path = "/home/andrep/workspace/DeepMIL/data/"
@@ -120,13 +116,6 @@ if __name__ == '__main__':
 
     if not os.path.exists(end_path):
         os.makedirs(end_path)
-
-    # nice sort
-    #locs = np.array(locs)
-    #gts = np.array(gts)
-    #index = np.argsort(locs)
-    #locs = locs[index]
-    #gts = gts[index]
 
     proc_num = 16 # 16
     p = mp.Pool(proc_num)
