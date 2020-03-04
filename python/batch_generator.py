@@ -7,6 +7,7 @@ from numpy.random import random_sample, rand, random_integers, uniform
 import scipy
 import numba as nb
 import os
+import matplotlib.pyplot as plt
 
 
 @nb.jit(nopython=True)
@@ -152,10 +153,13 @@ aug: 		dict with what augmentation as key and what degree of augmentation as val
 """
 
 
-def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path=''):
+def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path='', mask_flag=True):
 
     for i in range(epochs):
         batch = 0
+
+        # if nb_slices = 1 =>
+        input_shape = input_shape[1:]
 
         # shuffle samples for each epoch
         random.shuffle(file_list)  # patients are shuffled, but chunks are after each other
@@ -166,15 +170,34 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             tmp_bag = []
 
             # get slices
-            slices = os.listdir(filename)
+            #slices = os.listdir(filename)
             #np.random.shuffle(slices)
+
+            # get slices nicely sorted
+            slices = np.array(os.listdir(filename))
+            tmp = np.array([int(x.split(".")[0]) for x in slices])
+            slices = slices[np.argsort(tmp)]
+            #print(slices)
 
             # randomly extract bag_batch number of samples from
             for file in slices: #os.listdir(filename): # <- perhaps shuffle the order? Does that makes sense?
 
                 f = h5py.File(filename + file, 'r')
                 input_im = np.array(f['data']).astype(np.float32)
+                mask = np.array(f['lungmask']).astype(np.float32)
                 f.close()
+
+                orig = input_im.copy()
+                if mask_flag:
+                    input_im[mask == 0] = 0
+
+                '''
+                fig, ax = plt.subplots(1, 3)
+                ax[0].imshow(input_im, cmap="gray")
+                ax[1].imshow(orig, cmap="gray")
+                ax[2].imshow(mask, cmap="gray")
+                plt.show()
+                '''
 
                 # apply specified agumentation on both image stack and ground truth
                 if 'gauss' in aug:
@@ -202,9 +225,9 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 tmp_bag.append(input_im)
                 del input_im #, output
             
-            f = h5py.File(filename + file, 'r')
-            output = np.array(f['output']).astype(np.float32)
-            f.close()
+            ff = h5py.File(filename + file, 'r')
+            output = np.array(ff['output']).astype(np.float32)
+            ff.close()
 
             bag_batch = tmp_bag.copy()
             bag_label = [output]

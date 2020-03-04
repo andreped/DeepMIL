@@ -90,7 +90,7 @@ class Mil_Attention(Layer):
     def get_config(self):
         config = {
             'output_dim': self.output_dim,
-            'v_initializer': self.V.initializer, #initializers.serialize(self.V.initializer),
+            'v_initializer': self.V.initializer, #initializers.serialize(self.V.initializer), # TODO: What does initializers.serialize() do? Is it necessary?
             'w_initializer': self.w.initializer, #initializers.serialize(self.w.initializer),
             'v_regularizer': self.v_regularizer, #regularizers.serialize(self.v_regularizer),
             'w_regularizer': self.w_regularizer, #regularizers.serialize(self.w_regularizer),
@@ -166,7 +166,6 @@ class Last_Sigmoid(Layer):
         # sigmoid
         out = K.sigmoid(x)
 
-
         return out
 
     def compute_output_shape(self, input_shape):
@@ -178,10 +177,10 @@ class Last_Sigmoid(Layer):
     def get_config(self):
         config = {
             'output_dim': self.output_dim,
-            #'kernel_initializer': initializers.serialize(self.kernel.initializer),
-            #'bias_initializer': initializers.serialize(self.bias_initializer),
-            #'kernel_regularizer': regularizers.serialize(self.kernel_regularizer),
-            #'bias_regularizer': regularizers.serialize(self.bias_regularizer),
+            'kernel_initializer': self.kernel.initializer,  #initializers.serialize(self.kernel.initializer), # TODO: What does initializers.serialize() do? Is it necessary?
+            'bias_initializer': self.bias_initializer,  #initializers.serialize(self.bias_initializer),
+            'kernel_regularizer': self.kernel_regularizer,  #regularizers.serialize(self.kernel_regularizer),
+            'bias_regularizer': self.bias_regularizer,  #regularizers.serialize(self.bias_regularizer),
             'use_bias': self.use_bias
         }
         base_config = super(Last_Sigmoid, self).get_config()

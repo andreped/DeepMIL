@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('GTk3Agg')
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -16,7 +16,6 @@ from scipy.ndimage import binary_fill_holes
 import nibabel as nib
 from nibabel.processing import *
 from copy import deepcopy
-from lungmask_old import *
 from lungmask import lungmask
 
 
@@ -35,17 +34,21 @@ def unique_patients(tmp):
 
 def images(event):
     ax[0].clear()
-    ax[0].imshow(data_orig[int(slider2.val)], cmap='gray')
-    ax[0].imshow(gt[int(slider2.val)], cmap=cmap, alpha=float(slider1.val))
-    ax[0].imshow(gt_b[int(slider2.val)], cmap=cmap2)
-    #ax[0].imshow(brain[int(slider2.val)], cmap3, alpha=float(slider3.val))
+    ax[0].imshow(data_orig[int(slider2.val)], cmap='gray', vmin=0, vmax=1)
+    #ax[0].imshow(gt[int(slider2.val)], cmap=cmap, alpha=float(slider1.val))
+    #ax[0].imshow(gt_b[int(slider2.val)], cmap=cmap2)
     ax[0].set_title('CT + lungmask')
     ax[0].set_axis_off()
 
     ax[1].clear()
-    ax[1].imshow(gt[int(slider2.val)], cmap='gray')
-    ax[1].set_title('lungmask')
+    ax[1].imshow(masked[int(slider2.val)], cmap='gray', vmin=0, vmax=1)
+    ax[1].set_title(image + " | " + str(sets[curr_label]))
     ax[1].set_axis_off()
+
+    ax[2].clear()
+    ax[2].imshow(gt[int(slider2.val)], cmap="gray", vmin=0, vmax=1)
+    ax[2].set_title('lungmask')
+    ax[2].set_axis_off()
 
     f.suptitle('slice ' + str(int(slider2.val)))
     f.canvas.draw_idle()
@@ -97,38 +100,46 @@ if __name__ == "__main__":
     
     os.environ["CUDA_VISIBLE_DEVICES"] = "0" # -1
 
-    data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
+    dataset = '040320_binary_healthy_sick_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
+    data_path = "/home/andrep/workspace/DeepMIL/data/" + dataset + "/"
 
     sets = ["negative", "positive"] #["Healthy", "Sick"]
 
-    locs = []
-    for i, curr_set in enumerate(sets):
-        loc = data_path + curr_set + "/"
-        for path in os.listdir(loc):
-            curr_path = loc + path
-            locs.append(curr_path)
-
+    locs = os.listdir(data_path)
     np.random.shuffle(locs)
 
-    for name in tqdm(locs, "CT:"):
+    for filename in tqdm(locs, "CT:"):
 
-        print(name)
-
+        print("\n--")
+        print(filename)
+        image = filename
+        curr_label = int(filename.split("_")[0])
         filename = data_path + filename + "/"
+        data = []
+        lungmask = []
 
-        tmp_bag = []
-
-        # get slices
-        slices = os.listdir(filename)
-        #np.random.shuffle(slices)
+        # get slices nicely sorted
+        slices = np.array(os.listdir(filename))
+        tmp = np.array([int(x.split(".")[0]) for x in slices])
+        slices = slices[np.argsort(tmp)]
 
         # randomly extract bag_batch number of samples from
-        for file in slices: #os.listdir(filename): # <- perhaps shuffle the order? Does that makes sense?
+        for file in slices:
+            print(file)
 
             f = h5py.File(filename + file, 'r')
             input_im = np.array(f['data']).astype(np.float32)
+            lungmask_im = np.array(f['lungmask']).astype(np.float32)
             f.close()
 
+            data.append(input_im)
+            lungmask.append(lungmask_im)
+
+        data_orig = np.array(data)
+        gt = np.array(lungmask)
+
+        masked = data_orig.copy()
+        masked[gt == 0] = 0
 
         # generate boundary image
         gt_b = np.zeros_like(gt)
@@ -146,7 +157,7 @@ if __name__ == "__main__":
         colors = [(0, 1, 0, i) for i in np.linspace(0, 1, 3)]
         cmap3 = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
 
-        f, ax = plt.subplots(1, 2, figsize=(12, 12))
+        f, ax = plt.subplots(1, 3, figsize=(24, 12))
         f.canvas.mpl_connect('key_press_event', up_scroll_alt)
         f.canvas.mpl_connect('key_press_event', down_scroll_alt)
         f.canvas.mpl_connect('scroll_event', up_scroll)
@@ -156,7 +167,7 @@ if __name__ == "__main__":
         slider1 = Slider(s1ax, 'alpha', 0, 1.0, dragging=True, valstep=0.05)
 
         s2ax = plt.axes([0.25, 0.02, 0.5, 0.03])
-        slider2 = Slider(s2ax, 'slice', 0, data.shape[0] - 1, valstep=1, valfmt='%1d')
+        slider2 = Slider(s2ax, 'slice', 0, data_orig.shape[0] - 1, valstep=1, valfmt='%1d')
 
         # init
         slider1.set_val(0.3)
