@@ -153,7 +153,8 @@ aug: 		dict with what augmentation as key and what degree of augmentation as val
 """
 
 
-def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path='', mask_flag=True):
+def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path='',
+               mask_flag=True, bag_size=1):
 
     for i in range(epochs):
         batch = 0
@@ -168,6 +169,7 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             filename = data_path + filename + "/"
             
             tmp_bag = []
+            bag = []
 
             # get slices
             #slices = os.listdir(filename)
@@ -179,6 +181,9 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             slices = slices[np.argsort(tmp)]
             #print(slices)
 
+            # shuffle data
+            #np.random.shuffle(slices)
+
             # randomly extract bag_batch number of samples from
             for file in slices: #os.listdir(filename): # <- perhaps shuffle the order? Does that makes sense?
 
@@ -187,7 +192,7 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 mask = np.array(f['lungmask']).astype(np.float32)
                 f.close()
 
-                orig = input_im.copy()
+                #orig = input_im.copy()
                 if mask_flag:
                     input_im[mask == 0] = 0
 
@@ -218,8 +223,8 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 if 'zoom' in aug:
                     input_im = add_scaling2(input_im.copy(), aug['zoom'])
                 
-                input_im = np.expand_dims(input_im, axis=-1)
-                input_im = np.expand_dims(input_im, axis=0)
+                #input_im = np.expand_dims(input_im, axis=-1)
+                #input_im = np.expand_dims(input_im, axis=0)
 
                 # add augmented sample to temporary bag
                 tmp_bag.append(input_im)
@@ -229,13 +234,32 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             output = np.array(ff['output']).astype(np.float32)
             ff.close()
 
-            bag_batch = tmp_bag.copy()
+            bag_batch = np.array(tmp_bag) #.copy()
             bag_label = [output]
+
+            #print(bag_batch.shape)
+            bag_batch = bag_batch[:bag_size]
+            tmp = np.zeros((bag_size,) + (bag_batch.shape[1:]))
+            #print(tmp.shape)
+            #print()
+            tmp[:bag_batch.shape[0]] = bag_batch
+            bag_batch = tmp.copy()
+            del tmp
+
+            #bag_batch = np.expand_dims(bag_batch, axis=0)
+            bag_batch = np.moveaxis(bag_batch, 0, -1)
+            #bag_batch = np.expand_dims(bag_batch, axis=0)
+            #print(bag_batch.shape)
+            #bag_batch = np.expand_dims(bag_batch, axis=-1)
+            bag.append(bag_batch)
 
             batch += 1
             if batch == batch_size:
+                bag_batch = np.array(bag)
+                #print(bag_batch.shape)
                 batch = 0
                 tmp_bag = []
+                bag = []
                 yield bag_batch, bag_label
 
 def batch_length(file_list):

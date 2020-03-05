@@ -103,6 +103,8 @@ if __name__ == "__main__":
     dataset = '040320_binary_healthy_sick_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
     data_path = "/home/andrep/workspace/DeepMIL/data/" + dataset + "/"
 
+    features_flag = False  # Default: False
+
     sets = ["negative", "positive"] #["Healthy", "Sick"]
 
     locs = os.listdir(data_path)
@@ -117,6 +119,7 @@ if __name__ == "__main__":
         filename = data_path + filename + "/"
         data = []
         lungmask = []
+        features = []
 
         # get slices nicely sorted
         slices = np.array(os.listdir(filename))
@@ -124,16 +127,22 @@ if __name__ == "__main__":
         slices = slices[np.argsort(tmp)]
 
         # randomly extract bag_batch number of samples from
-        for file in slices:
-            print(file)
+        for file in tqdm(slices, "Slices: "):
 
             f = h5py.File(filename + file, 'r')
             input_im = np.array(f['data']).astype(np.float32)
             lungmask_im = np.array(f['lungmask']).astype(np.float32)
+            if features_flag:
+                feat = np.array(f['features']).astype(np.float32)
+                features.append(feat)
             f.close()
 
             data.append(input_im)
             lungmask.append(lungmask_im)
+
+        print(":)")
+        if features_flag:
+            features = np.array(features)
 
         data_orig = np.array(data)
         gt = np.array(lungmask)

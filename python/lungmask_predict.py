@@ -3,7 +3,7 @@ import subprocess as sp
 from tqdm import tqdm
 
 data_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
-lungmask_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick_lungmask/"
+lungmask_path = "/mnt/EncryptedPathology/DeepMIL/healthy_sick_lungmask_test/"
 
 if not os.path.exists(lungmask_path):
     os.makedirs(lungmask_path)
@@ -18,4 +18,4 @@ for curr_set in tqdm(os.listdir(data_path), "Set:"):
         loc = path1 + ct
         curr_id = ct.split(".")[0]
         curr_end_path = lungmask_path + curr_set + "/" + curr_id + "_lungmask.nii.gz"
-        sp.check_call(["lungmask", loc, curr_end_path], stdout=open(os.devnull, 'wb'))
+        sp.check_call(["lungmask", loc, curr_end_path, "--cpu"], stderr=sp.DEVNULL, stdout=sp.DEVNULL)

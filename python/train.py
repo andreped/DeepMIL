@@ -15,6 +15,7 @@ from datetime import date
 from tensorflow.python.keras.callbacks import ModelCheckpoint, Callback
 import shutil
 from models import *
+from batch_gen_features import *
 
 
 def upsample_balance(tmps):
@@ -38,7 +39,12 @@ def getClassDistribution(x):
 
 #if __name__ == '__main__':  # <- TODO: (fix this!) currently just did this because I am obese AF and didn't bother to make actual input variables to the model functions above
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+GPU = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = GPU  #"0"
+if GPU == "-1":
+    print("No GPU is being used...")
+else:
+    print("GPU in use: " + GPU)
 
 # from keras.backend.tensorflow_backend import set_session
 config = tf.ConfigProto()
@@ -48,29 +54,40 @@ config.log_device_placement = True  # to log device placement (on which device t
 sess = tf.Session(config=config)
 #set_session(sess)  # set this TensorFlow session as the default session for Keras
 
-
 # current date
 curr_date = "_".join(date.today().strftime("%d/%m/%Y").split("/")[:2]) + "_"
+print("Today's date: ")
+print(curr_date)
 
 weight_decay = 0 #0.0005 #0.0005
-useGated = False #False # Default: Frue
-lr = 5e-5 #5e-5
-batch_size = 1 #16
+useGated = False #False # Default: True
+lr = 1e-4 #5e-5
+batch_size = 32 #16
 nb_classes = 2
 slices = 1
 #window = 256
-mask_flag = True #True
+mask_flag = False  #False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
 epochs = 200
 #bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
 
 old_date = "040320"
 input_shape = (1, 256, 256)
+nb_features = 2048
 hu_clip = [-1024, 1024]
 new_spacing = [1., 1., 2.]
-test = 1
+test = 5
+
+dense_val = 128  # 128, 64, 32
+nb_dense_layers = 1  # 2
+L_dim = 64
+bag_size = 220
+convs = [8, 16, 32, 64, 128]
+dense_dropout = 0  # 0.5
+valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP"]
+model_type = "2DCNN"
 
 # augmentations
-train_aug = {} #{'flip': 1, 'rotate': 20, 'shift': int(np.round(window * 0.1))}  # , 'zoom':[0.75, 1.25]}
+train_aug = {}  #{'flip': 1, 'rotate': 20, 'shift': int(np.round(window * 0.1))}  # , 'zoom':[0.75, 1.25]}
 val_aug = {}
 
 data_name = old_date + "_binary_healthy_sick" + \
@@ -96,9 +113,13 @@ name = data_name + \
     "_gated_" + str(useGated) + \
     "_mask_" + str(mask_flag) + \
     "_test_" + str(test) +\
-    "_eps_" + str(epochs)
-
-print("\n\n\n")
+    "_eps_" + str(epochs) +\
+    "_dval_" + str(dense_val) +\
+    "_nb_dl" + str(nb_dense_layers) +\
+    "_Ldim_" + str(L_dim) +\
+    "_bag_s_" + str(bag_size) +\
+    "_conv_" + str(convs) +\
+    "_drp_" + str(dense_dropout)
 
 # prepare data -> balance classes, and CTs
 classes = np.array([0, 1])
@@ -143,10 +164,10 @@ val_dir = upsample_balance(val_dir)
 #print(test_dir)
 
 # sets
-print("Sets (train, val, test): ")
-print(train_dir)
-print(val_dir)
-print(test_dir)
+#print("Sets (train, val, test): ")
+#print(train_dir)
+#print(val_dir)
+#print(test_dir)
 
 # distribution after
 print("Class distribution on all sets after balancing: ")
@@ -172,32 +193,91 @@ print("Model name and configs: ")
 print(name)
 
 # define model
-#model = model2D()
-network = DeepMIL2D(input_shape=input_shape[1:] + (1,), nb_classes=2)
-model = network.create()
+if model_type == "simple":
+    model = model2D()
+elif model_type == "2DMIL":
+    network = DeepMIL2D(input_shape=input_shape[1:] + (bag_size,), nb_classes=2) #(1,), nb_classes=2)
+    network.set_convolutions(convs)
+    network.set_dense_dropout(dense_dropout)
+    model = network.create()
+
+    # optimization setup
+    model.compile(
+        optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
+        loss=bag_loss,
+        metrics=[bag_accuracy]
+    )
+elif model_type == "2DCNN":
+    network = Benchline3DCNN(input_shape=input_shape[1:] + (bag_size,), nb_classes=2)
+    network.nb_dense_layers = nb_dense_layers
+    network.dense_size = dense_val
+    network.L_dim = L_dim
+    network.set_convolutions(convs)
+    network.set_dense_dropout(dense_dropout)
+    model = network.create()
+
+    # optimization setup
+    model.compile(
+        optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
+elif model_type == "2DFCN":
+    network = Benchline3DFCN(input_shape=input_shape[1:] + (bag_size,), nb_classes=2)
+    network.nb_dense_layers = nb_dense_layers
+    network.dense_size = dense_val
+    network.L_dim = L_dim
+    network.set_convolutions(convs)
+    network.set_dense_dropout(dense_dropout)
+    model = network.create()
+
+    # optimization setup
+    model.compile(
+        optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
+elif model_type == "MLP":
+    print((int(bag_size*nb_features),))
+    network = MLP(input_shape=(int(bag_size*nb_features),), nb_classes=2)
+    network.nb_dense_layers = nb_dense_layers
+    network.dense_size = dense_val
+    network.set_dense_dropout(dense_dropout)
+    model = network.create()
+
+    # optimization setup
+    model.compile(
+        optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
+else:
+    raise("Please choose a valid model type among these options: " + str(valid_model_types))
+
 print(model.summary())
 
-# optimization setup
-model.compile(
-    optimizer=Adam(lr=lr,beta_1=0.9, beta_2=0.999),
-    loss=bag_loss,
-    metrics=[bag_accuracy]
-)
-
 # define generators for sampling of data
-train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
-                       nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
-                       mask_flag=mask_flag)
-val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
-                     nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
-                     mask_flag=mask_flag)
+if not model_type == "MLP":
+    train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
+                           nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
+                           mask_flag=mask_flag, bag_size=bag_size)
+    val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
+                         nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
+                         mask_flag=mask_flag, bag_size=bag_size)
+else:
+    train_gen = batch_gen_features3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
+                           nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
+                           mask_flag=mask_flag, bag_size=bag_size)
+    val_gen = batch_gen_features3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
+                         nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
+                         mask_flag=mask_flag, bag_size=bag_size)
 
 train_length = len(train_dir)
 val_length = len(val_dir)
 
 save_best = ModelCheckpoint(
     save_model_path + 'model_' + name + '.h5',
-    monitor='loss',  # TODO: WANTED TO MONITOR TRAIN LOSS TO STUDY OVERFITTING, BUT SHOULD HAVE || VAL_LOSS || !!!!!
+    monitor='val_loss',  # TODO: WANTED TO MONITOR TRAIN LOSS TO STUDY OVERFITTING, BUT SHOULD HAVE || VAL_LOSS || !!!!!
     verbose=0,
     save_best_only=True,
     save_weights_only=True, # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
@@ -209,12 +289,20 @@ save_best = ModelCheckpoint(
 class LossHistory(Callback):
     def on_train_begin(self, logs={}):
         self.losses = []
-        self.losses.append(['loss', 'val_loss',
-                            'bag_accuracy', 'val_bag_accuracy'])
+        if model_type == "2DMIL":
+            self.losses.append(['loss', 'val_loss',
+                                'bag_accuracy', 'val_bag_accuracy'])
+        else:
+            self.losses.append(['loss', 'val_loss',
+                                'acc', 'val_acc'])
 
     def on_epoch_end(self, batch, logs={}):
-        self.losses.append([logs.get('loss'), logs.get('val_loss'),
-                            logs.get('bag_accuracy'), logs.get('val_bag_accuracy')])
+        if model_type == "2DMIL":
+            self.losses.append([logs.get('loss'), logs.get('val_loss'),
+                                logs.get('bag_accuracy'), logs.get('val_bag_accuracy')])
+        else:
+            self.losses.append([logs.get('loss'), logs.get('val_loss'),
+                                logs.get('acc'), logs.get('val_acc')])
         # save history:
         ff = h5py.File((history_path + 'history_' + name + '.h5'), 'w')
         ff.create_dataset("history", data=np.array(self.losses).astype('|S9'), compression="gzip", compression_opts=4)
