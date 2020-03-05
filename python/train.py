@@ -39,12 +39,8 @@ def getClassDistribution(x):
 
 #if __name__ == '__main__':  # <- TODO: (fix this!) currently just did this because I am obese AF and didn't bother to make actual input variables to the model functions above
 
-GPU = "-1"
+GPU = "0"
 os.environ["CUDA_VISIBLE_DEVICES"] = GPU  #"0"
-if GPU == "-1":
-    print("No GPU is being used...")
-else:
-    print("GPU in use: " + GPU)
 
 # from keras.backend.tensorflow_backend import set_session
 config = tf.ConfigProto()
@@ -54,6 +50,11 @@ config.log_device_placement = True  # to log device placement (on which device t
 sess = tf.Session(config=config)
 #set_session(sess)  # set this TensorFlow session as the default session for Keras
 
+if GPU == "-1":
+    print("No GPU is being used...")
+else:
+    print("GPU in use: " + GPU)
+
 # current date
 curr_date = "_".join(date.today().strftime("%d/%m/%Y").split("/")[:2]) + "_"
 print("Today's date: ")
@@ -61,8 +62,8 @@ print(curr_date)
 
 weight_decay = 0 #0.0005 #0.0005
 useGated = False #False # Default: True
-lr = 1e-4 #5e-5
-batch_size = 32 #16
+lr = 1e-3  #1e-3, 5e-5
+batch_size = 2 #16
 nb_classes = 2
 slices = 1
 #window = 256
@@ -71,20 +72,21 @@ epochs = 200
 #bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
 
 old_date = "040320"
-input_shape = (1, 256, 256)
+input_shape = (1, 256, 256) #256, 256)
 nb_features = 2048
 hu_clip = [-1024, 1024]
 new_spacing = [1., 1., 2.]
-test = 5
+test = 6
 
-dense_val = 128  # 128, 64, 32
+dense_val = 100  # 128, 64, 32
 nb_dense_layers = 1  # 2
+stride = 2
 L_dim = 64
-bag_size = 220
-convs = [8, 16, 32, 64, 128]
-dense_dropout = 0  # 0.5
-valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP"]
-model_type = "2DCNN"
+bag_size = 180 #220
+convs = [16, 32, 64, 64, 128, 128] #, 128, 256] #[8, 16, 32, 64, 128]
+dense_dropout = 0 #0.2  # 0.5
+valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN"]
+model_type = "3DCNN"
 
 # augmentations
 train_aug = {}  #{'flip': 1, 'rotate': 20, 'shift': int(np.round(window * 0.1))}  # , 'zoom':[0.75, 1.25]}
@@ -238,7 +240,6 @@ elif model_type == "2DFCN":
         metrics=['accuracy']
     )
 elif model_type == "MLP":
-    print((int(bag_size*nb_features),))
     network = MLP(input_shape=(int(bag_size*nb_features),), nb_classes=2)
     network.nb_dense_layers = nb_dense_layers
     network.dense_size = dense_val
@@ -251,6 +252,24 @@ elif model_type == "MLP":
         loss='binary_crossentropy',
         metrics=['accuracy']
     )
+
+elif model_type == "3DCNN":
+    print(input_shape[1:] + (bag_size, 1, ))
+    network = CNN3D(input_shape=input_shape[1:] + (bag_size, 1, ), nb_classes=2)
+    network.nb_dense_layers = nb_dense_layers
+    network.dense_size = dense_val
+    network.L_dim = L_dim
+    network.set_convolutions(convs)
+    network.set_dense_dropout = dense_dropout
+    network.set_stride = 1
+    model = network.create()
+
+    # optimization setup
+    model.compile(
+        optimizer='adadelta',  # Adam(lr=lr), # beta_1=0.9, beta_2=0.999),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
 else:
     raise("Please choose a valid model type among these options: " + str(valid_model_types))
 
@@ -260,10 +279,10 @@ print(model.summary())
 if not model_type == "MLP":
     train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
                            nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
-                           mask_flag=mask_flag, bag_size=bag_size)
+                           mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
     val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
                          nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
-                         mask_flag=mask_flag, bag_size=bag_size)
+                         mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
 else:
     train_gen = batch_gen_features3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
                            nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
@@ -280,7 +299,7 @@ save_best = ModelCheckpoint(
     monitor='val_loss',  # TODO: WANTED TO MONITOR TRAIN LOSS TO STUDY OVERFITTING, BUT SHOULD HAVE || VAL_LOSS || !!!!!
     verbose=0,
     save_best_only=True,
-    save_weights_only=True, # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+    save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
     mode='auto',  # 'auto',
     period=1
 )

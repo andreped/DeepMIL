@@ -152,9 +152,8 @@ aug: 		dict with what augmentation as key and what degree of augmentation as val
 		->	'flip': 1, fast
 """
 
-
 def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path='',
-               mask_flag=True, bag_size=1):
+               mask_flag=True, bag_size=1, model_type=""):
 
     for i in range(epochs):
         batch = 0
@@ -165,15 +164,14 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
         # shuffle samples for each epoch
         random.shuffle(file_list)  # patients are shuffled, but chunks are after each other
 
+        # store CTs
+        bag = []
+        gt_bag = []
+
         for filename in file_list:
             filename = data_path + filename + "/"
             
             tmp_bag = []
-            bag = []
-
-            # get slices
-            #slices = os.listdir(filename)
-            #np.random.shuffle(slices)
 
             # get slices nicely sorted
             slices = np.array(os.listdir(filename))
@@ -189,12 +187,12 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
 
                 f = h5py.File(filename + file, 'r')
                 input_im = np.array(f['data']).astype(np.float32)
-                mask = np.array(f['lungmask']).astype(np.float32)
+                if mask_flag:
+                    mask = np.array(f['lungmask']).astype(np.float32)
+                    input_im[mask == 0] = 0
                 f.close()
 
                 #orig = input_im.copy()
-                if mask_flag:
-                    input_im[mask == 0] = 0
 
                 '''
                 fig, ax = plt.subplots(1, 3)
@@ -235,32 +233,34 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             ff.close()
 
             bag_batch = np.array(tmp_bag) #.copy()
-            bag_label = [output]
+            bag_label = output
+            gt_bag.append(bag_label)
 
             #print(bag_batch.shape)
             bag_batch = bag_batch[:bag_size]
-            tmp = np.zeros((bag_size,) + (bag_batch.shape[1:]))
+            tmp = np.zeros((bag_size,) + (bag_batch.shape[1:])).astype(np.float32)
             #print(tmp.shape)
             #print()
             tmp[:bag_batch.shape[0]] = bag_batch
             bag_batch = tmp.copy()
             del tmp
 
-            #bag_batch = np.expand_dims(bag_batch, axis=0)
             bag_batch = np.moveaxis(bag_batch, 0, -1)
-            #bag_batch = np.expand_dims(bag_batch, axis=0)
-            #print(bag_batch.shape)
-            #bag_batch = np.expand_dims(bag_batch, axis=-1)
             bag.append(bag_batch)
 
             batch += 1
             if batch == batch_size:
                 bag_batch = np.array(bag)
+                gt_batch = np.array(gt_bag)
+                #print()
+                if model_type == "3DCNN":
+                    bag_batch = np.expand_dims(bag_batch, axis=-1)
                 #print(bag_batch.shape)
                 batch = 0
                 tmp_bag = []
                 bag = []
-                yield bag_batch, bag_label
+                gt_bag = []
+                yield bag_batch, gt_batch
 
 def batch_length(file_list):
     length = len(file_list)

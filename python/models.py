@@ -9,8 +9,9 @@ import tensorflow as tf
 from custom_layers import Mil_Attention, Last_Sigmoid
 
 
-def convolution_block_2d_fcn(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0):
-    x = Convolution2D(nr_of_convolutions, 1, padding='same', kernel_regularizer=l2(weight_decay))(x)
+def convolution_block_2d_fcn(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
+    x = Convolution2D(nr_of_convolutions, 1, padding='same', kernel_regularizer=l2(weight_decay),
+                      strides=(stride, stride))(x)
     if use_bn:
         x = BatchNormalization()(x)
     x = Activation('relu')(x)
@@ -20,9 +21,10 @@ def convolution_block_2d_fcn(x, nr_of_convolutions, use_bn=False, spatial_dropou
     return x
 
 
-def convolution_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0):
+def convolution_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
     for i in range(2):
-        x = Convolution2D(nr_of_convolutions, 3, padding='same', kernel_regularizer=l2(weight_decay))(x)
+        x = Convolution2D(nr_of_convolutions, 3, padding='same', kernel_regularizer=l2(weight_decay),
+                          strides=(stride, stride))(x)
         if use_bn:
             x = BatchNormalization()(x)
         x = Activation('relu')(x)
@@ -31,28 +33,28 @@ def convolution_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=No
     return x
 
 
-def encoder_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0):
-    x_before_downsampling = convolution_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout,
-                                                 weight_decay=weight_decay)
-    x = MaxPooling2D((2, 2))(x_before_downsampling)
-    return x, x_before_downsampling
-
-
-def convolution_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0):
+def convolution_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
     for i in range(2):
-        x = Convolution3D(nr_of_convolutions, 3, padding='same', weight_decay=weight_decay)(x)
+        x = Convolution3D(nr_of_convolutions, 3, padding='same', kernel_regularizer=l2(weight_decay),
+                          strides=(stride, stride, stride))(x)
         if use_bn:
             x = BatchNormalization()(x)
         x = Activation('relu')(x)
         if spatial_dropout:
             x = SpatialDropout3D(spatial_dropout)(x)
-
     return x
 
 
-def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0):
+def encoder_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
+    x_before_downsampling = convolution_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout,
+                                                 weight_decay=weight_decay, stride=stride)
+    x = MaxPooling2D((2, 2))(x_before_downsampling)
+    return x, x_before_downsampling
+
+
+def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
     x_before_downsampling = convolution_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout,
-                                                 weight_decay=weight_decay)
+                                                 weight_decay=weight_decay, stride=stride)
     downsample = [2, 2, 2]
     for i in range(1, 4):
         if x.shape[i] <= 4:
@@ -63,25 +65,25 @@ def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, 
     return x, x_before_downsampling
 
 
-def encoder_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, dims=2, weight_decay=0):
+def encoder_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, dims=2, weight_decay=0, stride=1):
     if dims == 2:
-        return encoder_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay)
+        return encoder_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride)
     elif dims == 3:
-        return encoder_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay)
+        return encoder_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride)
     else:
         raise ValueError
 
 
-def convolution_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, dims=2, weight_decay=0):
+def convolution_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, dims=2, weight_decay=0, stride=1):
     if dims == 2:
-        return convolution_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay)
+        return convolution_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride)
     elif dims == 3:
-        return convolution_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay)
+        return convolution_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride)
     else:
         raise ValueError
 
 
-class DeepMIL2D():
+class DeepMIL2D:
     def __init__(self, input_shape, nb_classes):
         if len(input_shape) != 3:
             raise ValueError('Input shape must have 3 dimensions')
@@ -173,7 +175,7 @@ class DeepMIL2D():
         return x
 
 
-class Benchline3DCNN():
+class Benchline3DCNN:
     def __init__(self, input_shape, nb_classes):
         if len(input_shape) != 3:
             raise ValueError('Input shape must have 3 dimensions')
@@ -262,7 +264,7 @@ class Benchline3DCNN():
         return x
 
 
-class Benchline3DFCN():
+class Benchline3DFCN:
     def __init__(self, input_shape, nb_classes):
         if len(input_shape) != 3:
             raise ValueError('Input shape must have 3 dimensions')
@@ -349,7 +351,8 @@ class Benchline3DFCN():
 
         return x
 
-class MLP():
+
+class MLP:
     def __init__(self, input_shape, nb_classes):
         if len(input_shape) != 1:
             raise ValueError('Input shape must have 1 dimensions')
@@ -389,6 +392,98 @@ class MLP():
         model = Model(inputs=input_layer, outputs=x)
 
         return model
+
+
+class CNN3D:
+    def __init__(self, input_shape, nb_classes):
+        if len(input_shape) != 4:
+            raise ValueError('Input shape must have 4 dimensions')
+        if nb_classes != 2:
+            raise ValueError('Classes must be 2')
+        self.input_shape = input_shape
+        self.convolutions = None
+        self.use_bn = True
+        self.spatial_dropout = None
+        self.dense_dropout = 0
+        self.dense_size = 64
+        self.weight_decay = 0
+        self.useGated = True
+        self.L_dim = 32
+        self.nb_dense_layers = 2
+        self.stride = 1
+
+    def set_dense_size(self, size):
+        self.dense_size = size
+
+    def set_dense_dropout(self, dropout):
+        self.dense_dropout = dropout
+
+    def set_spatial_dropout(self, dropout):
+        self.spatial_dropout = dropout
+
+    def set_convolutions(self, convolutions):
+        self.convolutions = convolutions
+
+    def set_stride(self, stride):
+        self.stride = stride
+
+    def get_depth(self):
+        init_size = min(self.input_shape[0], self.input_shape[1])
+        size = init_size
+        depth = 0
+        while size > 4:
+            size /= 2
+            size = int(size)  # in case of odd number size before division
+            depth += 1
+        return depth + 1
+
+    def create(self):
+        """
+        Create model and return it
+
+        :return: keras model
+        """
+
+        input_layer = Input(shape=self.input_shape)
+        x = input_layer
+
+        init_size = min(self.input_shape[:-1])
+        size = init_size
+
+        convolutions = self.convolutions
+        if convolutions is None:  # if not defined, define simple encoder
+            # Create convolutions
+            convolutions = []
+            nr_of_convolutions = 8
+            for i in range(self.get_depth()):
+                convolutions.append(nr_of_convolutions)
+                nr_of_convolutions *= 2
+
+        ## make encoder
+        i = 0
+        # while size > 4:
+        for i in range(len(convolutions)):
+            x, _ = encoder_block_3d(x, convolutions[i], self.use_bn, self.spatial_dropout, stride=self.stride)
+            size /= 2
+            size = int(size)
+            i += 1
+
+        # x = convolution_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout) # VGG-esque triple conv in last level
+
+        ## define classifier model
+        x = Flatten(name="flatten")(x)
+
+        # fully-connected layers
+        for i, d in enumerate(range(self.nb_dense_layers)):
+            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
+                x)
+            # fc1 = BatchNormalization()(fc1)
+            x = Dropout(self.dense_dropout)(x)
+
+        x = Dense(1, activation="sigmoid")(x)
+        x = Model(inputs=input_layer, outputs=x)
+
+        return x
 
 
 

@@ -139,7 +139,7 @@ if __name__ == '__main__':
     if not os.path.exists(end_path):
         os.makedirs(end_path)
 
-    proc_num = 16 # 16
+    proc_num = 12 # 16
     p = mp.Pool(proc_num)
     num_tasks = len(locs)
     r = list(tqdm(p.imap(func, locs), "CT", total=num_tasks))  # list(tqdm(p.imap(func,gts),total=num_tasks))
