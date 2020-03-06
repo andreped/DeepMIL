@@ -94,7 +94,7 @@ if __name__ == '__main__':
     mask_flag = bool(config["Design"]["mask_flag"])  # False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
 
     # Architecture
-    valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid"] # TODO: This is not set by configFile
+    valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL"] # TODO: This is not set by configFile
     model_type = config["Architecture"]["model_type"]
     convs = eval(config["Architecture"]["convs"])
     nb_dense_layers = int(config["Architecture"]["nb_dense_layers"])
@@ -207,7 +207,8 @@ if __name__ == '__main__':
     if model_type == "simple":
         model = model2D()
     elif model_type == "2DMIL":
-        network = DeepMIL2D(input_shape=input_shape[1:] + (bag_size,), nb_classes=nb_classes)  # (1,), nb_classes=2)
+        print(input_shape[1:])
+        network = DeepMIL2D(input_shape=input_shape[1:] + (1,), nb_classes=nb_classes)  # (1,), nb_classes=2)
         network.set_convolutions(convs)
         network.set_dense_size(dense_val)
         network.nb_dense_layers = nb_dense_layers
@@ -216,7 +217,7 @@ if __name__ == '__main__':
 
         # optimization setup
         model.compile(
-            optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
+            optimizer=Adam(lr=lr),  # , beta_1=0.9, beta_2=0.999), # <- Default params
             loss=bag_loss,
             metrics=[bag_accuracy]
         )
@@ -292,6 +293,15 @@ if __name__ == '__main__':
             optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
             loss=bag_loss,
             metrics=[bag_accuracy]
+        )
+    elif model_type == "DeepFCNMIL":
+        model = DeepFCNMIL(input_shape=(bag_size,) + input_shape[1:], nb_classes=2)
+
+        # optimization setup
+        model.compile(
+            optimizer='adadelta',
+            loss='sparse_categorical_crossentropy',  # TODO: binary_crossentropy or sparse_categorical_crossentropy (?)
+            metrics=['accuracy']
         )
     else:
         raise ("Please choose a valid model type among these options: " + str(valid_model_types))

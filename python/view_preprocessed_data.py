@@ -98,7 +98,7 @@ def minmaxscale(tmp):
 
 if __name__ == "__main__":
     
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0" # -1
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # -1
 
     #dataset = '040320_binary_healthy_sick_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
     dataset = '040320_binary_healthy_sick_shape_(1,128,128)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
