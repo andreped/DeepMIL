@@ -2,11 +2,7 @@
 
 This is the repo where we will insert the code that we will be using for this project.
 
-If new modules are being added to the project, update requirements.txt doing:
-```
-pip3 freeze > requirements.txt
-```
-
+### Setup virtual environment
 To install the necessary modules, run
 ```
 pip install -r requirements.txt
@@ -16,13 +12,18 @@ It is recommended to work in a virtual enviroment, make one by:
 ```
 virtualenv -ppython3 venv
 ```
-and then activate/deactive it doing
+and then activate/deactive it by
 ```
 source venv/bin/activate
 ```
 or
 ```
 deactivate
+```
+
+(OPTIONAL) If new modules are being added to the project, update requirements.txt by:
+```
+pip3 freeze > requirements.txt
 ```
 
 ### LUNGMASK
@@ -39,7 +40,6 @@ Then you can remove the lungmask directory.
 ## Directions:
 ### Directory Setup:
 1. Create data directories and subdirectories as below.
-
 ```
 +-- {DATA_DIR}/
 |   +-- positive/
@@ -57,16 +57,18 @@ Then you can remove the lungmask directory.
 ### Generate Data:
 2. Create training/val/test data by processing CT and saving them in a suitable format, by running
 ```
-python create_data.py
+python create_data.py path_to_datagen_config.ini
 ```
+
+The file.ini is the config file with all relevant parameters for generating the dataset on your setup. Please change this before usage as params, e.g. paths, might be different on your machine. The one I use can be found in the python-folder.
 
 ### Train:
 3. Train your model running
 ```
-pythont train.py
+pythont train.py path_to_training_config.ini
 ```
 
-NOTE: For both 2. and 3., paths are hardcoded for my (André's) setup. Hence, one might need to change some paths (to be handled better in the future)
+The file.ini is the config file with all relevant parameters for training your model(s) on your setup. Please change this before usage as params, e.g. paths, might be different on your machine
 
 
 ### Workspace setup
@@ -93,7 +95,11 @@ NOTE: For both 2. and 3., paths are hardcoded for my (André's) setup. Hence, on
 |   |   |   +-- [...]
 |   |   +-- history/
 |   |   |   +-- corresponding_generated_history_for_trained_model_2d.h5
-|   |   |   +-- corresponding_genereated_history_for_trained_model_3d.h5
+|   |   |   +-- corresponding_generated_history_for_trained_model_3d.h5
+|   |   |   +-- [...]
+|   |   +-- configs/
+|   |   |   +-- corresponding_generated_configurations_for_trained_model_2d.h5
+|   |   |   +-- corresponding_generated_configurations_for_trained_model_3d.h5
 |   |   |   +-- [...]
 ```
 
