@@ -60,13 +60,15 @@ Then you can remove the lungmask directory.
 python create_data.py path_to_datagen_config.ini
 ```
 
+The file.ini is the config file with all relevant parameters for generating the dataset on your setup. Please change this before usage as params, e.g. paths, might be different on your machine. The one I use can be found in the python-folder.
+
 ### Train:
 3. Train your model running
 ```
 pythont train.py path_to_training_config.ini
 ```
 
-NOTE: For both 2. and 3., paths are hardcoded for my (André's) setup. Hence, one might need to change some paths (to be handled better in the future)
+The file.ini is the config file with all relevant parameters for training your model(s) on your setup. Please change this before usage as params, e.g. paths, might be different on your machine
 
 
 ### Workspace setup
