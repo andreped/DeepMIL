@@ -57,13 +57,13 @@ Then you can remove the lungmask directory.
 ### Generate Data:
 2. Create training/val/test data by processing CT and saving them in a suitable format, by running
 ```
-python create_data.py
+python create_data.py path_to_datagen_config.ini
 ```
 
 ### Train:
 3. Train your model running
 ```
-pythont train.py
+pythont train.py path_to_training_config.ini
 ```
 
 NOTE: For both 2. and 3., paths are hardcoded for my (André's) setup. Hence, one might need to change some paths (to be handled better in the future)
@@ -93,7 +93,11 @@ NOTE: For both 2. and 3., paths are hardcoded for my (André's) setup. Hence, on
 |   |   |   +-- [...]
 |   |   +-- history/
 |   |   |   +-- corresponding_generated_history_for_trained_model_2d.h5
-|   |   |   +-- corresponding_genereated_history_for_trained_model_3d.h5
+|   |   |   +-- corresponding_generated_history_for_trained_model_3d.h5
+|   |   |   +-- [...]
+|   |   +-- configs/
+|   |   |   +-- corresponding_generated_configurations_for_trained_model_2d.h5
+|   |   |   +-- corresponding_generated_configurations_for_trained_model_3d.h5
 |   |   |   +-- [...]
 ```
 
