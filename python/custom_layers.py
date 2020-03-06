@@ -77,7 +77,7 @@ class Mil_Attention(Layer):
 
         # do w^T x
         soft_x = K.dot(ac_x, self.w)  # (2,64) * (64, 1) = (2,1)
-        alpha = K.softmax(K.transpose(soft_x)) # (2,1)
+        alpha = K.softmax(K.transpose(soft_x))  # (2,1)
         alpha = K.transpose(alpha)
         return alpha
 

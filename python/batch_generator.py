@@ -236,11 +236,8 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             bag_label = output
             gt_bag.append(bag_label)
 
-            #print(bag_batch.shape)
             bag_batch = bag_batch[:bag_size]
             tmp = np.zeros((bag_size,) + (bag_batch.shape[1:])).astype(np.float32)
-            #print(tmp.shape)
-            #print()
             tmp[:bag_batch.shape[0]] = bag_batch
             bag_batch = tmp.copy()
             del tmp

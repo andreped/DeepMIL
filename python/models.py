@@ -83,7 +83,7 @@ def convolution_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None,
         raise ValueError
 
 
-class DeepMIL2D:
+class AttentionMIL:
     def __init__(self, input_shape, nb_classes):
         if len(input_shape) != 3:
             raise ValueError('Input shape must have 3 dimensions')
@@ -174,6 +174,98 @@ class DeepMIL2D:
 
         return x
 
+
+
+class DeepMIL2D:
+    def __init__(self, input_shape, nb_classes):
+        if len(input_shape) != 3:
+            raise ValueError('Input shape must have 3 dimensions')
+        if nb_classes != 2:
+            raise ValueError('Classes must be 2')
+        self.input_shape = input_shape
+        self.convolutions = None
+        self.use_bn = True
+        self.spatial_dropout = None
+        self.dense_dropout = 0.5
+        self.dense_size = 64
+        self.weight_decay = 0
+        self.useGated = True
+        self.L_dim = 32
+        self.nb_dense_layers = 2
+
+    def set_dense_size(self, size):
+        self.dense_size = size
+
+    def set_dense_dropout(self, dropout):
+        self.dense_dropout = dropout
+
+    def set_spatial_dropout(self, dropout):
+        self.spatial_dropout = dropout
+
+    def set_convolutions(self, convolutions):
+        self.convolutions = convolutions
+
+    def get_depth(self):
+        init_size = min(self.input_shape[0], self.input_shape[1])
+        size = init_size
+        depth = 0
+        while size > 4:
+            size /= 2
+            size = int(size)  # in case of odd number size before division
+            depth += 1
+        return depth + 1
+
+    def create(self):
+        """
+        Create model and return it
+
+        :return: keras model
+        """
+
+        input_layer = Input(shape=self.input_shape)
+        x = input_layer
+
+        init_size = min(self.input_shape[:-1])
+        size = init_size
+
+        convolutions = self.convolutions
+        if convolutions is None:  # if not defined, define simple encoder
+            # Create convolutions
+            convolutions = []
+            nr_of_convolutions = 8
+            for i in range(self.get_depth()):
+                convolutions.append(nr_of_convolutions)
+                nr_of_convolutions *= 2
+
+        ## make encoder
+        i = 0
+        #while size > 4:
+        for i in range(len(convolutions)):
+            x, _ = encoder_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout)
+            size /= 2
+            size = int(size)
+            i += 1
+
+        # x = convolution_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout) # VGG-esque triple conv in last level
+
+        ## define classifier model
+        x = Flatten(name="flatten")(x)
+
+        # fully-connected layers
+        for i, d in enumerate(range(self.nb_dense_layers)):
+            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
+                x)
+            # fc1 = BatchNormalization()(fc1)
+            x = Dropout(self.dense_dropout)(x)
+
+        alpha = Mil_Attention(L_dim=self.L_dim, output_dim=1, kernel_regularizer=l2(self.weight_decay), name='alpha',
+                              use_gated=self.useGated)(x)  # L_dim=128
+        x_mul = multiply([alpha, x])
+
+        out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
+        x = Model(inputs=[input_layer], outputs=[out])
+
+        return x
 
 class Benchline3DCNN:
     def __init__(self, input_shape, nb_classes):
@@ -484,6 +576,109 @@ class CNN3D:
         x = Model(inputs=input_layer, outputs=x)
 
         return x
+
+
+'''
+# Say you have a backbone model works for an input of (16,112,112,3) and you want to use it under Multiple instance
+# learning. You just need to wrap it with TimeDistributed and use some kind of 'selector' to pick the salient result.
+# Here's an example when there're 32 instances in each bag.
+
+input = Input(shape=(32,16,112,112,3))
+x = BatchNormalization()(input)
+x = TimeDistributed(backbone)(x)
+x = GlobalMaxPool1D()(x)
+model = Model(input,x)
+'''
+
+class DeepMIL2D_hybrid:
+    def __init__(self, input_shape, nb_classes):  # input_shape = (bag_size, ) + data_size + (nb_channels,) # data size could be (16, 112, 112) for 3D slabs
+        if len(input_shape) != 4:
+            raise ValueError('Input shape must have 4 dimensions')
+        if nb_classes != 2:
+            raise ValueError('Classes must be 2')
+        self.input_shape = input_shape
+        self.convolutions = None
+        self.use_bn = True
+        self.spatial_dropout = None
+        self.dense_dropout = 0.5
+        self.dense_size = 64
+        self.weight_decay = 0
+        self.useGated = True
+        self.L_dim = 32
+        self.nb_dense_layers = 2
+
+    def set_dense_size(self, size):
+        self.dense_size = size
+
+    def set_dense_dropout(self, dropout):
+        self.dense_dropout = dropout
+
+    def set_spatial_dropout(self, dropout):
+        self.spatial_dropout = dropout
+
+    def set_convolutions(self, convolutions):
+        self.convolutions = convolutions
+
+    def get_depth(self):
+        init_size = min(self.input_shape[0], self.input_shape[1])
+        size = init_size
+        depth = 0
+        while size > 4:
+            size /= 2
+            size = int(size)  # in case of odd number size before division
+            depth += 1
+        return depth + 1
+
+    def create(self):
+        """
+        Create model and return it
+
+        :return: keras model
+        """
+
+        input_layer = Input(shape=self.input_shape)
+        x = BatchNormalization()(x)  # <- batch norm over the data first?
+        x = input_layer
+
+        init_size = min(self.input_shape[:-1])
+        size = init_size
+
+        convolutions = self.convolutions
+        if convolutions is None:  # if not defined, define simple encoder
+            # Create convolutions
+            convolutions = []
+            nr_of_convolutions = 8
+            for i in range(self.get_depth()):
+                convolutions.append(nr_of_convolutions)
+                nr_of_convolutions *= 2
+
+        ## make encoder
+        i = 0
+        #while size > 4:
+        for i in range(len(convolutions)):
+            x, _ = encoder_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout)
+            size /= 2
+            size = int(size)
+            i += 1
+
+        # x = convolution_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout) # VGG-esque triple conv in last level
+
+        ## define classifier model
+        x = Flatten(name="flatten")(x)
+
+        # fully-connected layers
+        for i, d in enumerate(range(self.nb_dense_layers)):
+            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(x)
+            # fc1 = BatchNormalization()(fc1)
+            x = Dropout(self.dense_dropout)(x)
+
+        y = BatchNormalization()(input_layer)
+        x = TimeDistributed(x)(y)
+        x = GlobalMaxPool1D()(x)
+        model = Model(input_layer, x)
+
+        return model
+
 
 
 
