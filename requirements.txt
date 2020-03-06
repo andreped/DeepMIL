@@ -8,6 +8,7 @@ certifi==2018.1.18
 chardet==3.0.4
 chrome-gnome-shell==0.0.0
 command-not-found==0.3
+configparser==4.0.2
 cryptography==2.1.4
 cupshelpers==1.0
 cycler==0.10.0
