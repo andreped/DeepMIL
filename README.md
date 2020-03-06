@@ -12,7 +12,7 @@ It is recommended to work in a virtual enviroment, make one by:
 ```
 virtualenv -ppython3 venv
 ```
-and then activate/deactive it doing
+and then activate/deactive it by
 ```
 source venv/bin/activate
 ```
@@ -21,7 +21,7 @@ or
 deactivate
 ```
 
-(OPTIONAL) If new modules are being added to the project, update requirements.txt doing:
+(OPTIONAL) If new modules are being added to the project, update requirements.txt by:
 ```
 pip3 freeze > requirements.txt
 ```
@@ -40,7 +40,6 @@ Then you can remove the lungmask directory.
 ## Directions:
 ### Directory Setup:
 1. Create data directories and subdirectories as below.
-
 ```
 +-- {DATA_DIR}/
 |   +-- positive/
