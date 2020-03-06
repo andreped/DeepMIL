@@ -2,11 +2,7 @@
 
 This is the repo where we will insert the code that we will be using for this project.
 
-If new modules are being added to the project, update requirements.txt doing:
-```
-pip3 freeze > requirements.txt
-```
-
+### Setup virtual environment
 To install the necessary modules, run
 ```
 pip install -r requirements.txt
@@ -23,6 +19,11 @@ source venv/bin/activate
 or
 ```
 deactivate
+```
+
+(OPTIONAL) If new modules are being added to the project, update requirements.txt doing:
+```
+pip3 freeze > requirements.txt
 ```
 
 ### LUNGMASK
