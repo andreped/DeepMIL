@@ -47,14 +47,14 @@ max_shift:		the maximum amount th shift in a direction, only shifts in x and y d
 
 
 # random 3d shift
-def add_shift3(input_im, max_shift):
+def add_shift2(input_im, max_shift):
     sequence = [round(uniform(-max_shift, max_shift)), round(uniform(-max_shift, max_shift))]
     input_im = shift(input_im, sequence, order=0, mode='constant')
     return input_im
 
 
 # apply same random rotation for a stack of images
-def add_rotation3(input_im, max_angle):
+def add_rotation2(input_im, max_angle):
     # randomly choose how much to rotate for specified max_angle
     angle_xy = round(uniform(-max_angle, max_angle))
 
@@ -65,7 +65,7 @@ def add_rotation3(input_im, max_angle):
 
 
 # random flip
-def add_flip3(input_im):
+def add_flip2(input_im):
     # randomly choose whether or not to flip
     if (random_integers(0, 1) == 1):
         # randomly choose which axis to flip against
@@ -78,7 +78,7 @@ def add_flip3(input_im):
     return input_im
 
 
-def add_rotation3_ll(input_im):
+def add_rotation2_ll(input_im):
     # randomly choose rotation angle: 0, +-90, +,180, +-270
     k = random_integers(0, high=3)
 
@@ -88,7 +88,7 @@ def add_rotation3_ll(input_im):
     return input_im
 
 
-def add_scaling3(input_im, output, r_limits):
+def add_scaling2(input_im, r_limits):
 
     min_scaling, max_scaling = r_limits
     scaling_factor = np.random.uniform(min_scaling, max_scaling)
@@ -101,20 +101,19 @@ def add_scaling3(input_im, output, r_limits):
                 if dimension == 0:
                     image = image[:shape[0], :]
                 elif dimension == 1:
-                    image = image[:, :shape[1], :]
+                    image = image[:, :shape[1]]
             else:
                 # Fill
                 if dimension == 0:
-                    new_image = np.zeros((shape[0], image.shape[1], shape[2]))
-                    new_image[:image.shape[0], :, :] = image
+                    new_image = np.zeros((shape[0], image.shape[1]))
+                    new_image[:image.shape[0], :] = image
                 elif dimension == 1:
-                    new_image = np.zeros((shape[0], shape[1], shape[2]))
-                    new_image[:, :image.shape[1], :] = image
+                    new_image = np.zeros((shape[0], shape[1]))
+                    new_image[:, :image.shape[1]] = image
                 image = new_image
         return image
 
-    for i in range(input_im.shape[0]):
-        input_im[i] = crop_or_fill(scipy.ndimage.zoom(input_im[i], [scaling_factor,scaling_factor,1], order=1), input_im.shape[1:])
+    input_im = crop_or_fill(scipy.ndimage.zoom(input_im, [scaling_factor, scaling_factor], order=1), input_im.shape)
 
     return input_im
 
@@ -199,14 +198,6 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
 
                 #orig = input_im.copy()
 
-                '''
-                fig, ax = plt.subplots(1, 3)
-                ax[0].imshow(input_im, cmap="gray")
-                ax[1].imshow(orig, cmap="gray")
-                ax[2].imshow(mask, cmap="gray")
-                plt.show()
-                '''
-
                 # apply specified agumentation on both image stack and ground truth
                 if 'gauss' in aug:
                     input_im = add_gaussBlur2(input_im.copy(), aug["sigma"])
@@ -225,6 +216,13 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
 
                 if 'zoom' in aug:
                     input_im = add_scaling2(input_im.copy(), aug['zoom'])
+
+                '''
+                fig, ax = plt.subplots(1, 2)
+                ax[0].imshow(input_im, cmap="gray")
+                ax[1].imshow(orig, cmap="gray")
+                plt.show()
+                '''
                 
                 #input_im = np.expand_dims(input_im, axis=-1)
                 #input_im = np.expand_dims(input_im, axis=0)

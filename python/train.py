@@ -91,7 +91,7 @@ if __name__ == '__main__':
     # Design
     val1 = float(config["Design"]["val1"])  # 0.8  # split train 80% of data
     val2 = float(config["Design"]["val2"])  # 0.9  # split val 90%-val1=90%-80%=10% of data -> remaining test
-    mask_flag = bool(config["Design"]["mask_flag"])  # False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
+    mask_flag = eval(config["Design"]["mask_flag"])  # False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
 
     # Architecture
     valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL", "InceptionalMIL2D"] # TODO: This is not set by configFile
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     L_dim = int(config["Architecture"]["L_dim"])
     dense_dropout = float(config["Architecture"]["dense_dropout"])
     weight_decay = float(config["Architecture"]["weight_decay"])  # 0.0005 #0.0005
-    useGated = bool(config["Architecture"]["use_gated"])  # False # Default: True
+    useGated = eval(config["Architecture"]["use_gated"])  # False # Default: True
     bag_size = int(config["Architecture"]["bag_size"])
     # bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
 
@@ -142,14 +142,14 @@ if __name__ == '__main__':
         tmps[i] = tmp
 
     # 80, 20 split => merge test and validation set
-    val = (0.8 * np.array([len(x) for x in tmps])).astype(int)
+    val = (val1 * np.array([len(x) for x in tmps])).astype(int)
     train_dir = [[], []]
     val_dir = [[], []]
     test_dir = [[], []]
     for i, tmp in enumerate(tmps):
         length = len(tmp)
-        val = int(0.8 * length)
-        val2 = int(0.9 * length)
+        val = int(val1 * length)
+        val2 = int(val2 * length)
         train_dir[i] = tmp[:val]
         val_dir[i] = tmp[val:val2]
         test_dir[i] = tmp[val2:]
@@ -345,11 +345,11 @@ if __name__ == '__main__':
 
     save_best = ModelCheckpoint(
         save_model_path + 'model_' + name + '.h5',
-        monitor='val_loss',  # TODO: WANTED TO MONITOR TRAIN LOSS TO STUDY OVERFITTING, BUT SHOULD HAVE || VAL_LOSS || !!!!!
+        monitor='val_bag_accuracy',  # TODO: WANTED TO MONITOR TRAIN LOSS TO STUDY OVERFITTING, BUT SHOULD HAVE || VAL_LOSS || !!!!!
         verbose=0,
         save_best_only=True,
         save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
-        mode='auto',  # 'auto',
+        mode='max',  # 'auto',
         period=1
     )
 

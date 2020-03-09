@@ -44,20 +44,6 @@ class DataGenerator(object):
         bag_batch = []
         bag_label = []
         
-        #datagen = ImageDataGenerator()
-                                                                       
-        #transforms = {
-        	#	"theta" : 0.25,
-        	#	"tx" : 0.2,
-        	#	"ty" : 0.2,
-        	#	"shear" : 0.2,
-        	#	"zx" : 0.2,
-        	#	"zy" : 0.2,
-        #   "flip_horizontal" : True,
-        #		"zx" : 0.2,
-        	#	"zy" : 0.2,
-        	#}
-        
         for ibatch, batch in enumerate(batch_train):
             aug_batch = []
             img_data = batch[0]
@@ -85,11 +71,9 @@ class DataGenerator(object):
 
         while 1:
 
-        # status_list = np.zeros(batch_size)
-        # status_list = []
             indexes = self.__Get_exploration_order(train_set, shuffle=flag_train)
 
-        # Generate batches
+            # Generate batches
             imax = int(len(indexes) / self.batch_size)
 
             for i in range(imax):
@@ -98,10 +82,3 @@ class DataGenerator(object):
                 X, y = self.__Data_Generation(Batch_train_set)
 
                 yield X, y
-
-
-        # batch_train_set = Generate_Batch_Set(train_set, batch_size, flag_train)  # Get small batch from the original set
-
-
-        # print img_list_1[0].shape
-        # yield img_list, status_list
