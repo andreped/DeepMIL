@@ -34,6 +34,8 @@ python lungmask/setup.py install
 
 If any errors do occur, try running with python3 instead
 
+Then you can remove the lungmask directory.
+
 ## Directions:
 ### Directory Setup:
 1. Create data directories and subdirectories as below.
