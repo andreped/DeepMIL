@@ -113,8 +113,8 @@ if __name__ == '__main__':
     batch_size = int(config["Training"]["batch_size"])  # 64
     train_aug = eval(config["Training"]["train_aug"])  # {} # {'flip': 1, 'rotate': 20, 'shift': int(np.round(window * 0.1))}  # , 'zoom':[0.75, 1.25]}
     val_aug = eval(config["Training"]["val_aug"])  # {}
-    loss = config["Training"]["loss"]
-    metric = config["Training"]["metric"]
+    #loss = config["Training"]["loss"]  # <- This should be set automatically given which model is chosen
+    #metric = config["Training"]["metric"]  # <- This should be set automatically given which model is chosen
 
     # path to training data
     data_name = datagen_date + "_binary_healthy_sick" + \
@@ -208,6 +208,25 @@ if __name__ == '__main__':
     # define model
     if model_type == "simple":
         model = model2D()
+
+        # optimization setup
+        model.compile(
+            optimizer=Adam(lr=lr),  # , beta_1=0.9, beta_2=0.999), # <- Default params
+            loss=bag_loss,
+            metrics=[bag_accuracy]
+        )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_bag_accuracy',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
+        )
+
     elif model_type == "2DMIL":
         print(input_shape[1:])
         network = DeepMIL2D(input_shape=input_shape[1:] + (1,), nb_classes=nb_classes)  # (1,), nb_classes=2)
@@ -223,6 +242,17 @@ if __name__ == '__main__':
             loss=bag_loss,
             metrics=[bag_accuracy]
         )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_bag_accuracy',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
+        )
     elif model_type == "2DCNN":
         network = Benchline3DCNN(input_shape=input_shape[1:] + (bag_size,), nb_classes=nb_classes)
         network.nb_dense_layers = nb_dense_layers
@@ -235,8 +265,19 @@ if __name__ == '__main__':
         # optimization setup
         model.compile(
             optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
-            loss=loss,  # 'binary_crossentropy',
-            metrics=[metric]  # ['accuracy']
+            loss='binary_crossentropy',  # 'binary_crossentropy',
+            metrics=['accuracy']  # ['accuracy']
+        )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_acc',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
         )
     elif model_type == "2DFCN":
         network = Benchline3DFCN(input_shape=input_shape[1:] + (bag_size,), nb_classes=2)
@@ -250,8 +291,19 @@ if __name__ == '__main__':
         # optimization setup
         model.compile(
             optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
-            loss=loss,  # 'binary_crossentropy',
-            metrics=[metric]  # ['accuracy']
+            loss='binary_crossentropy',  # 'binary_crossentropy',
+            metrics=['accuracy']  # ['accuracy']
+        )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_acc',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
         )
     elif model_type == "MLP":
         network = MLP(input_shape=(int(bag_size * nb_features),), nb_classes=2)
@@ -263,8 +315,19 @@ if __name__ == '__main__':
         # optimization setup
         model.compile(
             optimizer=Adam(lr=lr, beta_1=0.9, beta_2=0.999),
-            loss=loss,  # 'binary_crossentropy',
-            metrics=[metric]  # ['accuracy']
+            loss='binary_crossentropy',  # 'binary_crossentropy',
+            metrics=['accuracy']  # ['accuracy']
+        )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_acc',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
         )
 
     elif model_type == "3DCNN":
@@ -281,9 +344,21 @@ if __name__ == '__main__':
         # optimization setup
         model.compile(
             optimizer='adadelta',  # Adam(lr=lr), # beta_1=0.9, beta_2=0.999),
-            loss=loss,  # 'binary_crossentropy',
-            metrics=[metric]  # ['accuracy']
+            loss='binary_crossentropy',  # 'binary_crossentropy',
+            metrics=['accuracy']  # ['accuracy']
         )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_acc',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
+        )
+
     elif model_type == "DeepMIL2D_hybrid":
         network = DeepMIL2D_hybrid(input_shape=(bag_size,) + input_shape[1:] + (1,), nb_classes=2)  # (1,), nb_classes=2)
         network.set_convolutions(convs)
@@ -296,6 +371,18 @@ if __name__ == '__main__':
             loss=bag_loss,
             metrics=[bag_accuracy]
         )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_bag_accuracy',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
+        )
+
     elif model_type == "DeepFCNMIL":
         model = DeepFCNMIL(input_shape=(bag_size,) + input_shape[1:], nb_classes=2)
 
@@ -305,6 +392,18 @@ if __name__ == '__main__':
             loss='sparse_categorical_crossentropy',  # TODO: binary_crossentropy or sparse_categorical_crossentropy (?)
             metrics=['accuracy']
         )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_acc',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
+        )
+
     elif model_type == "InceptionalMIL2D":
         network = InceptionalMIL2D(input_shape=(bag_size,) + input_shape[1:] + (3,), nb_classes=2)
         network.set_dense_size(dense_val)
@@ -317,6 +416,17 @@ if __name__ == '__main__':
             optimizer=Adam(lr=lr),  # , beta_1=0.9, beta_2=0.999), # <- Default params
             loss=bag_loss,
             metrics=[bag_accuracy]
+        )
+
+        # when and how to save model
+        save_best = ModelCheckpoint(
+            save_model_path + 'model_' + name + '.h5',
+            monitor='val_bag_accuracy',
+            verbose=0,
+            save_best_only=True,
+            save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+            mode='max',  # 'auto',
+            period=1
         )
 
     else:
@@ -340,24 +450,10 @@ if __name__ == '__main__':
                                       nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                                       mask_flag=mask_flag, bag_size=bag_size)
 
-    train_length = len(train_dir)
-    val_length = len(val_dir)
-
-    save_best = ModelCheckpoint(
-        save_model_path + 'model_' + name + '.h5',
-        monitor='val_bag_accuracy',  # TODO: WANTED TO MONITOR TRAIN LOSS TO STUDY OVERFITTING, BUT SHOULD HAVE || VAL_LOSS || !!!!!
-        verbose=0,
-        save_best_only=True,
-        save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
-        mode='max',  # 'auto',
-        period=1
-    )
-
-
     class LossHistory(Callback):
         def on_train_begin(self, logs={}):
             self.losses = []
-            if model_type == "2DMIL":
+            if "MIL" in model_type:
                 self.losses.append(['loss', 'val_loss',
                                     'bag_accuracy', 'val_bag_accuracy'])
             else:
@@ -365,7 +461,7 @@ if __name__ == '__main__':
                                     'acc', 'val_acc'])
 
         def on_epoch_end(self, batch, logs={}):
-            if model_type == "2DMIL":
+            if "MIL" in model_type:
                 self.losses.append([logs.get('loss'), logs.get('val_loss'),
                                     logs.get('bag_accuracy'), logs.get('val_bag_accuracy')])
             else:
@@ -382,10 +478,10 @@ if __name__ == '__main__':
 
     history = model.fit_generator(
         train_gen,
-        steps_per_epoch=int(ceil(train_length / batch_size)),
+        steps_per_epoch=int(ceil(len(train_dir) / batch_size)),
         epochs=epochs,
         validation_data=val_gen,
-        validation_steps=int(ceil(val_length / batch_size)),
+        validation_steps=int(ceil(len(val_dir) / batch_size)),
         callbacks=[save_best, history_log],
         use_multiprocessing=False,
         workers=1
