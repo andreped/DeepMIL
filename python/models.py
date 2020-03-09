@@ -7,6 +7,7 @@ from tensorflow.python.keras.regularizers import l2
 from tensorflow.python.keras.models import Model, Sequential
 import tensorflow as tf
 from custom_layers import Mil_Attention, Last_Sigmoid
+from tensorflow.python.keras.applications.inception_v3 import InceptionV3
 
 
 def convolution_block_2d_fcn(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
@@ -113,8 +114,6 @@ def convolution_block_time_dist(x, nr_of_convolutions, use_bn=False, spatial_dro
         raise ValueError
 
 
-
-
 class AttentionMIL:
     def __init__(self, input_shape, nb_classes):
         if len(input_shape) != 3:
@@ -207,7 +206,6 @@ class AttentionMIL:
         return x
 
 
-
 class DeepMIL2D:
     def __init__(self, input_shape, nb_classes):
         #if len(input_shape) != 3:
@@ -298,6 +296,68 @@ class DeepMIL2D:
         x = Model(inputs=[input_layer], outputs=[out])
 
         return x
+
+
+class InceptionalMIL2D:
+    def __init__(self, input_shape, nb_classes):
+        #if len(input_shape) != 3:
+        #    raise ValueError('Input shape must have 3 dimensions')
+        #if nb_classes != 2:
+        #    raise ValueError('Classes must be 2')
+        self.input_shape = input_shape
+        self.convolutions = None
+        self.use_bn = True
+        self.spatial_dropout = None
+        self.dense_dropout = 0.5
+        self.dense_size = 64
+        self.weight_decay = 0
+        self.useGated = True
+        self.L_dim = 32
+        self.nb_dense_layers = 2
+
+    def set_dense_size(self, size):
+        self.dense_size = size
+
+    def set_dense_dropout(self, dropout):
+        self.dense_dropout = dropout
+
+    def create(self):
+        """
+        Create model and return it
+
+        :return: keras model
+        """
+
+        input_layer = Input(shape=self.input_shape)
+        x = input_layer
+
+        # use InceptionV3 encoder only as feature extractor -> freeze CNN weights
+        base_model = Sequential()
+        base_model.add(InceptionV3(include_top=False, weights='imagenet', input_shape=self.input_shape[1:], pooling=max))
+        for layer in base_model.layers:
+            layer.trainable = False
+        x = base_model(x)
+
+        ## define classifier model
+        x = Flatten(name="flatten")(x)
+
+        # fully-connected layers
+        for i, d in enumerate(range(self.nb_dense_layers)):
+            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
+                x)
+            # fc1 = BatchNormalization()(fc1)
+            x = Dropout(self.dense_dropout)(x)
+
+        alpha = Mil_Attention(L_dim=self.L_dim, output_dim=1, kernel_regularizer=l2(self.weight_decay), name='alpha',
+                              use_gated=self.useGated)(x)  # L_dim=128
+        x_mul = multiply([alpha, x])
+
+        out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
+        x = Model(inputs=[input_layer], outputs=[out])
+
+        return x
+
+
 
 class Benchline3DCNN:
     def __init__(self, input_shape, nb_classes):
@@ -799,6 +859,9 @@ class CNNLSTM2D:
         model.add(Dense(self.dense_size))
 
         return model
+
+
+
 
 
 # https://github.com/dancsalo/TensorFlow-MIL/blob/master/deep_mil.py

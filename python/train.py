@@ -94,7 +94,7 @@ if __name__ == '__main__':
     mask_flag = bool(config["Design"]["mask_flag"])  # False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
 
     # Architecture
-    valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL"] # TODO: This is not set by configFile
+    valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL", "InceptionalMIL2D"] # TODO: This is not set by configFile
     model_type = config["Architecture"]["model_type"]
     convs = eval(config["Architecture"]["convs"])
     nb_dense_layers = int(config["Architecture"]["nb_dense_layers"])
@@ -202,6 +202,8 @@ if __name__ == '__main__':
     # close config file
     del config  # TODO: Is this the best way? Didn't find any close-method, so I just deleted the variable -> 2sneaky?
 
+    print("\n\n\n TRIED SHUFFLING STUFF \n\n\n")
+
 
     # define model
     if model_type == "simple":
@@ -303,6 +305,20 @@ if __name__ == '__main__':
             loss='sparse_categorical_crossentropy',  # TODO: binary_crossentropy or sparse_categorical_crossentropy (?)
             metrics=['accuracy']
         )
+    elif model_type == "InceptionalMIL2D":
+        network = InceptionalMIL2D(input_shape=(bag_size,) + input_shape[1:] + (3,), nb_classes=2)
+        network.set_dense_size(dense_val)
+        network.nb_dense_layers = nb_dense_layers
+        network.set_dense_dropout(dense_dropout)
+        model = network.create()
+
+        # optimization setup
+        model.compile(
+            optimizer=Adam(lr=lr),  # , beta_1=0.9, beta_2=0.999), # <- Default params
+            loss=bag_loss,
+            metrics=[bag_accuracy]
+        )
+
     else:
         raise ("Please choose a valid model type among these options: " + str(valid_model_types))
 

@@ -185,7 +185,7 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             #print(slices)
 
             # shuffle data
-            #np.random.shuffle(slices)
+            np.random.shuffle(slices)
 
             # randomly extract bag_batch number of samples from
             for file in slices: #os.listdir(filename): # <- perhaps shuffle the order? Does that makes sense?
@@ -251,7 +251,12 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
 
             # images in bag as channels?
             #curr_bag = np.moveaxis(curr_bag, 0, -1)
-            curr_bag = np.expand_dims(curr_bag, axis=-1)
+
+            if model_type == "InceptionalMIL2D":
+                curr_bag = np.stack((curr_bag,)*3, axis=-1)
+            else:
+                curr_bag = np.expand_dims(curr_bag, axis=-1)
+
             #print(curr_bag.shape)
 
             # append CT/bag to batch
