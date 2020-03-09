@@ -167,7 +167,7 @@ aug: 		dict with what augmentation as key and what degree of augmentation as val
 """
 
 
-def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path=''):
+def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path='',finetune=False):
 
     for i in range(epochs):
         batch = 0
@@ -216,14 +216,17 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
 
                 if 'zoom' in aug:
                     input_im, output = add_scaling3(input_im.copy(), output.copy(), aug['zoom'])
-                
+
                 input_im = np.expand_dims(input_im, axis=-1)
                 input_im = np.expand_dims(input_im, axis=0)
+
+                if finetune:
+                    input_im = np.repeat(input_im,3,-1)
 
                 #tmp = np.zeros(2, dtype=np.float32)
                 #tmp[int(output[0])] = 1
                 #output = tmp.copy()
-                
+
                 #print(input_im.shape)
                 #print(output)
 
@@ -245,7 +248,7 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 #batch = batch + 1
                 #if batch == bag_size:
                 #    batch = 0
-            
+
             # bag size
             #tmp_bag = np.array(tmp_bag)
             #np.random.shuffle(tmp_bag)
@@ -271,7 +274,7 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             bag_label = [output] #.append(output[0]) #*np.ones(len(tmp_bag))) #output*np.ones(len(tmp_bag)))
             #a = tmp_bag.copy()
             #b = output*np.ones(len(tmp_bag))
-                        
+
             #bag_batch = tmp_bag.copy()
             #bag_label = [output]
             #print()
@@ -289,7 +292,7 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                 bag_label = []
                 bag_batch = []
                 tmp_bag = []
-                
+
                 #out_batch = np.concatenate(out_batch)
                 #out_label = out_label.flatten()
                 #print("\n Finished: \n")

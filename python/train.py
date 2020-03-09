@@ -4,6 +4,8 @@ from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.optimizers import SGD,Adam
 from tensorflow.python.keras.regularizers import l2
 from tensorflow.python.keras.layers import Input, Dense, Layer, Dropout, Conv2D, MaxPooling2D, Flatten, multiply, BatchNormalization
+from tensorflow.keras.applications.inception_v3 import InceptionV3
+from tensorflow.keras.applications.vgg16 import VGG16
 import numpy as np
 from metrics import bag_accuracy, bag_loss
 from custom_layers import Mil_Attention, Last_Sigmoid
@@ -40,7 +42,7 @@ if __name__ == '__main__':
     #sess = tf.Session(config=config)
 
     img_size = 256
-    input_dim = (img_size, img_size, 1)
+    input_dim = (img_size, img_size, 3)
     weight_decay = 0 #0.0005
     useGated = True
     lr = 1e-4 #5e-5
@@ -48,6 +50,7 @@ if __name__ == '__main__':
     nb_classes = 2
     slices = 1
     window = 256
+    pretrained = True
 
     name = curr_date + "binary_healthy_sick_cancer_" + str(img_size)
 
@@ -109,37 +112,47 @@ if __name__ == '__main__':
 
     # define model
     data_input = Input(shape=input_dim, dtype='float32', name='input')
-    conv1 = Conv2D(16, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(data_input)
-    conv1 = BatchNormalization()(conv1)
-    conv1 = Conv2D(16, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv1)
-    conv1 = BatchNormalization()(conv1)
-    conv1 = MaxPooling2D((2, 2))(conv1)
 
-    conv2 = Conv2D(32, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv1)
-    conv2 = BatchNormalization()(conv2)
-    conv2 = Conv2D(32, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv2)
-    conv2 = BatchNormalization()(conv2)
-    conv2 = MaxPooling2D((2, 2))(conv2)
+    if pretrained:
+        #encoder = InceptionV3(include_top=False, weights='imagenet',)
+        encoder = VGG16(include_top=False,weights='imagenet',input_tensor=data_input)
+        for layer in encoder.layers[:-8]:
+            layer.trainable = False
 
-    conv3 = Conv2D(64, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv2)
-    conv3 = BatchNormalization()(conv3)
-    conv3 = Conv2D(64, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv3)
-    conv3 = BatchNormalization()(conv3)
-    conv3 = MaxPooling2D((2, 2))(conv3)
+        encoder = encoder(data_input)
 
-    conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv3)
-    conv4 = BatchNormalization()(conv4)
-    conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
-    conv4 = BatchNormalization()(conv4)
-    conv4 = MaxPooling2D((2, 2))(conv4)
+    else:
+        conv1 = Conv2D(16, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(data_input)
+        conv1 = BatchNormalization()(conv1)
+        conv1 = Conv2D(16, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv1)
+        conv1 = BatchNormalization()(conv1)
+        conv1 = MaxPooling2D((2, 2))(conv1)
 
-    conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
-    conv5 = BatchNormalization()(conv5)
-    conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv5)
-    conv5 = BatchNormalization()(conv5)
-    conv5 = MaxPooling2D((2, 2))(conv5)
+        conv2 = Conv2D(32, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv1)
+        conv2 = BatchNormalization()(conv2)
+        conv2 = Conv2D(32, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv2)
+        conv2 = BatchNormalization()(conv2)
+        conv2 = MaxPooling2D((2, 2))(conv2)
 
-    x = Flatten()(conv5)
+        conv3 = Conv2D(64, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv2)
+        conv3 = BatchNormalization()(conv3)
+        conv3 = Conv2D(64, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv3)
+        conv3 = BatchNormalization()(conv3)
+        conv3 = MaxPooling2D((2, 2))(conv3)
+
+        conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv3)
+        conv4 = BatchNormalization()(conv4)
+        conv4 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
+        conv4 = BatchNormalization()(conv4)
+        conv4 = MaxPooling2D((2, 2))(conv4)
+
+        conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv4)
+        conv5 = BatchNormalization()(conv5)
+        conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv5)
+        conv5 = BatchNormalization()(conv5)
+        conv5 = MaxPooling2D((2, 2))(conv5)
+
+    x = Flatten()(encoder)
 
     fc1 = Dense(64, activation='relu', kernel_regularizer=l2(weight_decay), name='fc1')(x)
     #fc1 = BatchNormalization()(fc1)
@@ -171,8 +184,8 @@ if __name__ == '__main__':
     val_aug = {}
 
     # define generators for sampling of data
-    train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs, nb_classes=nb_classes, input_shape=(slices, window, window, 1), data_path = data_path)
-    val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs, nb_classes=nb_classes, input_shape=(slices, window, window, 1), data_path = data_path)
+    train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs, nb_classes=nb_classes, input_shape=(slices, window, window, 1), data_path = data_path,finetune=pretrained)
+    val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs, nb_classes=nb_classes, input_shape=(slices, window, window, 1), data_path = data_path,finetune=pretrained)
 
     train_length = len(train_dir)
     val_length = len(val_dir)
