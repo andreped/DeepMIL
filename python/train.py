@@ -41,8 +41,13 @@ if __name__ == '__main__':
 
     #sess = tf.Session(config=config)
 
+    pretrained = False
     img_size = 256
-    input_dim = (img_size, img_size, 3)
+    if pretrained:
+        #vgg16 needs 3-channeled inputs
+        input_dim = (img_size, img_size, 3)
+    else:
+        input_dim = (img_size, img_size, 1)
     weight_decay = 0 #0.0005
     useGated = True
     lr = 1e-4 #5e-5
@@ -50,7 +55,6 @@ if __name__ == '__main__':
     nb_classes = 2
     slices = 1
     window = 256
-    pretrained = True
 
     name = curr_date + "binary_healthy_sick_cancer_" + str(img_size)
 
@@ -151,6 +155,7 @@ if __name__ == '__main__':
         conv5 = Conv2D(128, kernel_size=(3, 3), kernel_regularizer=l2(weight_decay), activation='relu')(conv5)
         conv5 = BatchNormalization()(conv5)
         conv5 = MaxPooling2D((2, 2))(conv5)
+        encoder = conv5
 
     x = Flatten()(encoder)
 
