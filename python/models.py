@@ -375,6 +375,7 @@ class Benchline3DCNN:
         self.useGated = True
         self.L_dim = 32
         self.nb_dense_layers = 2
+        self.final_dense = 1
 
     def set_dense_size(self, size):
         self.dense_size = size
@@ -387,6 +388,9 @@ class Benchline3DCNN:
 
     def set_convolutions(self, convolutions):
         self.convolutions = convolutions
+
+    def set_final_dense(self, final_dense):
+        self.final_dense = final_dense
 
     def get_depth(self):
         init_size = min(self.input_shape[0], self.input_shape[1])
@@ -441,7 +445,10 @@ class Benchline3DCNN:
             # fc1 = BatchNormalization()(fc1)
             x = Dropout(self.dense_dropout)(x)
 
-        x = Dense(1, activation="sigmoid")(x)
+        if self.final_dense == 1:
+            x = Dense(self.final_dense, activation="sigmoid")(x)
+        else:
+            x = Dense(self.final_dense, activation="softmax")(x)
 
         x = Model(inputs=input_layer, outputs=x)
 
@@ -465,6 +472,7 @@ class Benchline3DFCN:
         self.L_dim = 32
         self.nb_dense_layers = 2
         self.use_bn = True
+        self.final_dense = 1
 
     def set_dense_size(self, size):
         self.dense_size = size
@@ -490,6 +498,9 @@ class Benchline3DFCN:
             size = int(size)  # in case of odd number size before division
             depth += 1
         return depth + 1
+
+    def set_final_dense(self, final_dense):
+        self.final_dense = final_dense
 
     def create(self):
         """
@@ -528,8 +539,12 @@ class Benchline3DFCN:
         for i, d in enumerate(range(self.nb_dense_layers)):
             x = convolution_block_2d_fcn(x, self.dense_size, self.use_bn, self.spatial_dropout)
 
-        x = Flatten()(x)
-        x = Dense(1, activation="sigmoid")(x)
+        x = GlobalMaxPooling2D()(x)
+
+        if self.final_dense == 1:
+            x = Dense(self.final_dense, activation="sigmoid")(x)
+        else:
+            x = Dense(self.final_dense, activation="softmax")(x)
 
         x = Model(inputs=input_layer, outputs=x)
 

@@ -11,7 +11,7 @@ from tqdm import tqdm
 from utils.augmentations import *
 from utils.tfrecord_utils import *
 from utils.pad import *
-from models.resnet import *
+from models_resnet.resnet import *
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -44,7 +44,7 @@ def step_bag_gradient(inputs, model):
 
     with tf.GradientTape() as tape:
         logits = model(x, training=True)
-        pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)
+        pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
         loss = tf.nn.softmax_cross_entropy_with_logits(
             labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
             logits=tf.gather(logits, top_idx),
@@ -58,8 +58,8 @@ def step_bag_gradient(inputs, model):
 def step_bag_val(inputs, model):
     x, y = inputs
 
-    logits = model(x, training=True)
-    pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # TODO: Only keep largest attention?
+    logits = model(x, training=True)  # TODO: Do I want to have training=True here ?
+    pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
     loss = tf.nn.softmax_cross_entropy_with_logits(
         labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
         logits=tf.gather(logits, top_idx),
@@ -91,12 +91,12 @@ if __name__ == "__main__":
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE = 2**7  # 2**7
+    BATCH_SIZE = 64  # 2**7
     BUFFER_SIZE = 2**2
-    ds = 4
+    ds = 4  # 4
     instance_size = (512, 512)  # (256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
     num_classes = 2
-    learning_rate = 1e-4
+    learning_rate = 5e-5  # 1e-4
     train_color_code = "\033[0;32m"
     val_color_code = "\033[0;36m"
     CONVERGENCE_EPOCH_LIMIT = 50
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
 
     MODEL_NAME = "resnetish_ds_{}".format(ds)
-    WEIGHT_DIR = Path("models/weights") / MODEL_NAME
+    WEIGHT_DIR = Path("models_resnet/weights") / MODEL_NAME
     RESULTS_DIR = Path("results") / MODEL_NAME
     DATA_DIR = Path(sys.argv[1])
     NUM_INSTANCES_FILE = DATA_DIR / "count.txt"
@@ -125,8 +125,29 @@ if __name__ == "__main__":
     MODEL_PATH = WEIGHT_DIR / (MODEL_NAME + ".json")
     HISTORY_PATH = WEIGHT_DIR / (MODEL_NAME + "_history.json")
 
+
+    # TODO: WHETHER TO USE PRE-TRAINED RESNET OR TRAIN ENCODER-CLASSIFIER-NET FROM SCRATCH
+    model_type = "resnetish"  # "2DCNN"  # "resnetish"
+
     # Actual instantiation happens for each fold
-    model = resnet(num_classes=num_classes, ds=ds)
+    if model_type == "resnetish":
+        model = resnet(input_shape=(*instance_size, 1), num_classes=num_classes, ds=ds)  # TODO: NOTE THIS HAS BEEN CHANGED!!!
+    elif model_type == "2DCNN":  # TODO: Doesnt work. Does network have to be FCNs for these to be used in pipeline?
+        import sys
+        sys.path.append("/home/andrep/workspace/DeepMIL/python")
+        from models import Benchline3DCNN
+        nb_dense_layers = 1
+        dense_val = 128
+        convs = [18, 32, 32, 64, 64, 128, 128]
+        dense_dropout = 0
+
+        network = Benchline3DCNN(input_shape=(*instance_size, 1), nb_classes=num_classes)
+        network.nb_dense_layers = nb_dense_layers
+        network.dense_size = dense_val
+        network.set_convolutions(convs)
+        network.set_dense_dropout(dense_dropout)
+        network.set_final_dense(num_classes)
+        model = network.create()
 
     INIT_WEIGHT_PATH = WEIGHT_DIR / "init_weights.h5"
     model.save_weights(str(INIT_WEIGHT_PATH))
@@ -134,7 +155,7 @@ if __name__ == "__main__":
     with open(str(MODEL_PATH), 'w') as f:
         json.dump(json_string, f)
 
-    print(model.summary(line_length=75))
+    print(model.summary())  # line_length=75))
 
     ######### FIVE FOLD CROSS VALIDATION #########
 
@@ -187,8 +208,6 @@ if __name__ == "__main__":
         best_val_acc = 0
         convergence_epoch_counter = 0
 
-        print()
-
         grads = [tf.zeros_like(l) for l in model.trainable_variables]
 
         train_n = num_instances["train_{}".format(cur_fold)]
@@ -197,7 +216,7 @@ if __name__ == "__main__":
         best_epoch = 1
         for cur_epoch in range(N_EPOCHS):
 
-            print("\n{}Training...\033[0;0m".format(train_color_code))
+            print("\n")  # {}Training...\033[0;0m".format(train_color_code))
             for i, (x, y) in enumerate(train_dataset):
                 #print(x.shape)
                 grad, loss, pred = step_bag_gradient((x,y), model)
@@ -226,7 +245,7 @@ if __name__ == "__main__":
 
 
             # validation metrics
-            print("\n{}Validating...\033[0;0m".format(val_color_code))
+            print("\n")  # {}Validating...\033[0;0m".format(val_color_code))
             for i, (x, y) in enumerate(val_dataset):
                 loss, pred = step_bag_val((x,y), model)
 

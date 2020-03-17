@@ -44,46 +44,32 @@ def prepare_data(x_filename, y_label, num_classes):
     return x_slices, y
 
 
-'''
+from nibabel.processing import resample_to_output
+from scipy.ndimage import zoom
 def prepare_data_thorax(x_filename, y_label, num_classes):
 
     # read CT
     curr_ct = str(x_filename)
     nib_volume = nib.load(curr_ct)
+    new_spacing = [1, 1, 2]  # <- use slice thickness of 2 mm, but 1mm x 1mm image resolution
     resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
     data = resampled_volume.get_data().astype('float32')
 
-    # resize to get (512, 512) output images
-    from scipy.ndimage import zoom
-    img_size = input_shape[1]
-    data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+    # resize to get (512, 512) output images # TODO: Not sure if axes for TARGET_DIMS are correct here...
+    data = zoom(data, [TARGET_DIMS[0] / data.shape[0], TARGET_DIMS[1] / data.shape[1], 1.0], order=1)
 
     # pre-processing
-    data[data < hu_clip[0]] = hu_clip[0]
-    data[data > hu_clip[1]] = hu_clip[1]
+    data[data < -1024] = -1024
+    data[data > 1024] = 1024
 
     # intensity normalize [0, 1]
-    data = minmaxscale(data)
-
-    # fix orientation
-    data = np.flip(data, axis=1)  # np.rot90(data, k=1, axes=(0, 1))
-    data = np.flip(data, axis=0)
-
-    # get z axis first
-    data = np.swapaxes(data, 0, -1)
+    data = maxminscale(data)
 
     # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
-    gt_nib_volume = nib.load(
-        data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
+    data_path = str(IN_DATA_DIR) + "/"
+    gt_nib_volume = nib.load(data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
     resampled_volume = resample_to_output(gt_nib_volume, new_spacing, order=0)
     gt = resampled_volume.get_data().astype('float32')
-
-    # fix orientation
-    gt = np.flip(gt, axis=1)
-    gt = np.flip(gt, axis=0)
-
-    # get z axis first
-    gt = np.swapaxes(gt, 0, -1)
 
     gt[gt > 0] = 1
     data_shapes = data.shape
@@ -91,12 +77,15 @@ def prepare_data_thorax(x_filename, y_label, num_classes):
     gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
                    data_shapes[1] / gt_shapes[1],
                    data_shapes[2] / gt_shapes[2]], order=0)
-    data[gt == 0] = 0  # mask CT with lung mask # <- DONT MASK, one can easily do that if of interest in batchgen
+    data[gt == 0] = 0  # mask CT with lung mask
 
-    data = data.astype(np.float32)
+    data = data.astype(np.float16)  # cast to float16
+
+    y = np.zeros((num_classes,), dtype=np.uint8)
+    y[y_label] = 1
 
     return data, y
-'''
+
 
 
 if __name__ == "__main__":
@@ -226,7 +215,8 @@ if __name__ == "__main__":
                             y_train[i],
                         ))
 
-                    cur_x_slices, cur_y_label = prepare_data(
+                    #cur_x_slices, cur_y_label = prepare_data(
+                    cur_x_slices, cur_y_label = prepare_data_thorax(
                         X_names_train[i],
                         y_train[i],
                         len(classes),
@@ -251,7 +241,8 @@ if __name__ == "__main__":
         for x_name, y_label in tqdm(zip(X_names_test, y_test), total=len(X_names_test)):
             with open(TEST_FILENAMES_FILE, 'a') as f:
                 f.write("{},{}\n".format(x_name, y_label))
-            x_slices, y_label = prepare_data(
+            #x_slices, y_label = prepare_data(
+            x_slices, y_label = prepare_data_thorax(
                 x_name,
                 y_label,
                 len(classes),
