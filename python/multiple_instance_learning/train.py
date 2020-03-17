@@ -145,22 +145,18 @@ if __name__ == "__main__":
 
         ######### DATA IMPORT #########
         train_dataset = tf.data.TFRecordDataset(
-                str(TRAIN_TF_RECORD_FILENAME).format(cur_fold))\
-            .map(lambda record: parse_bag(
-                record,
-                instance_size,
-                num_labels=num_classes))\
-            .take(num_instances["train_{}".format(cur_fold)])\
-            .shuffle(BUFFER_SIZE)\
+                str(TRAIN_TF_RECORD_FILENAME).format(cur_fold))
+        train_dataset = train_dataset.map(lambda record: parse_bag(record,instance_size,num_labels=num_classes))
+        train_dataset = train_dataset.take(num_instances["train_{}".format(cur_fold)]).shuffle(BUFFER_SIZE)
 
 
         val_dataset = tf.data.TFRecordDataset(
-                str(VAL_TF_RECORD_FILENAME).format(cur_fold))\
-            .map(lambda record: parse_bag(
+                str(VAL_TF_RECORD_FILENAME).format(cur_fold))
+        val_dataset = val_dataset.map(lambda record: parse_bag(
                 record,
                 instance_size,
                 num_labels=num_classes))
-
+        """
         augmentations = [flip_dim1, flip_dim2] #Removed rotate2d
         for f in augmentations:
             train_dataset = train_dataset.map(
@@ -170,7 +166,7 @@ if __name__ == "__main__":
                     lambda: (x, y),     # don't apply any aug
                 ), num_parallel_calls=4,
             )
-
+        """
         # metrics
         train_accuracy = tf.keras.metrics.Accuracy(name='train_acc')
         train_loss = tf.keras.metrics.Mean(name='train_loss')
@@ -194,6 +190,7 @@ if __name__ == "__main__":
 
             print("\n{}Training...\033[0;0m".format(train_color_code))
             for i, (x, y) in enumerate(train_dataset):
+                print(x.shape)
                 grad, loss, pred = step_bag_gradient((x,y), model)
                 for g in range(len(grads)):
                     grads[g] = running_average(grads[g], grad[g], i + 1)
