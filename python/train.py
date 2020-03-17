@@ -1,4 +1,5 @@
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.optimizers import SGD, Adam
 from tensorflow.python.keras.regularizers import l2
@@ -17,6 +18,7 @@ import shutil
 from models import *
 from batch_gen_features import *
 import configparser
+import sys
 import sys
 
 
@@ -50,11 +52,10 @@ if __name__ == '__main__':
     GPU = config["GPU"]["useGPU"]
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 
-    # dynamically grow the memory used on the GPU
-    tf_config = tf.ConfigProto()
-    tf_config.gpu_options.allow_growth = True
-    tf_config.log_device_placement = True  # TODO: Is this necessary?
-    sess = tf.Session(config=tf_config)
+    # dynamically grow the memory used on the GPU (FOR TF==2.*)
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+    for device in gpu_devices:
+        tf.config.experimental.set_memory_growth(device, True)
 
     if GPU == "-1":
         print("No GPU is being used...")
@@ -279,6 +280,7 @@ if __name__ == '__main__':
             mode='max',  # 'auto',
             period=1
         )
+
     elif model_type == "2DFCN":
         network = Benchline3DFCN(input_shape=input_shape[1:] + (bag_size,), nb_classes=2)
         network.nb_dense_layers = nb_dense_layers

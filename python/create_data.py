@@ -10,7 +10,6 @@ from tqdm import tqdm
 import multiprocessing as mp
 from tensorflow.python.keras.applications.vgg16 import VGG16
 from nibabel.processing import resample_to_output
-from lungmask import lungmask
 import configparser
 
 import tensorflow as tf
@@ -52,7 +51,7 @@ def func(path):
     data = minmaxscale(data)
 
     # fix orientation
-    data = np.flip(data, axis=1) #np.rot90(data, k=1, axes=(0, 1))
+    data = np.flip(data, axis=1)  # np.rot90(data, k=1, axes=(0, 1))
     data = np.flip(data, axis=0)
 
     # get z axis first

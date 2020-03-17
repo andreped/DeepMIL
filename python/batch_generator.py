@@ -46,14 +46,21 @@ max_shift:		the maximum amount th shift in a direction, only shifts in x and y d
 """
 
 
-# random 3d shift
+# random 2d shift
 def add_shift2(input_im, max_shift):
     sequence = [round(uniform(-max_shift, max_shift)), round(uniform(-max_shift, max_shift))]
     input_im = shift(input_im, sequence, order=0, mode='constant')
     return input_im
 
 
-# apply same random rotation for a stack of images
+# random 3d shift
+def add_shift3(input_im, max_shift):
+    sequence = [1, round(uniform(-max_shift, max_shift)), round(uniform(-max_shift, max_shift))]
+    input_im = shift(input_im, sequence, order=0, mode='constant')
+    return input_im
+
+
+# 2d rotate
 def add_rotation2(input_im, max_angle):
     # randomly choose how much to rotate for specified max_angle
     angle_xy = round(uniform(-max_angle, max_angle))
@@ -64,13 +71,38 @@ def add_rotation2(input_im, max_angle):
     return input_im
 
 
-# random flip
+# apply same random rotation for a stack of images
+def add_rotation3(input_im, max_angle):
+    # randomly choose how much to rotate for specified max_angle
+    angle_xy = round(uniform(-max_angle, max_angle))
+
+    # rotate chunks
+    input_im = rotate(input_im, angle_xy, axes=(1, 2), reshape=False, mode='constant', order=1)
+
+    return input_im
+
+
+# random flip 2d
 def add_flip2(input_im):
     # randomly choose whether or not to flip
     if (random_integers(0, 1) == 1):
         # randomly choose which axis to flip against
         #flip_ax = random_integers(0, 1)
         flip_ax = 1 # horizontal flip only
+
+        # flip CT-chunk and corresponding GT
+        input_im = np.flip(input_im, axis=flip_ax)
+
+    return input_im
+
+
+# random flip 3D, apply same transform to all images in stack
+def add_flip3(input_im):
+    # randomly choose whether or not to flip
+    if (random_integers(0, 1) == 1):
+        # randomly choose which axis to flip against
+        #flip_ax = random_integers(0, 1)
+        flip_ax = 2  # horizontal flip only
 
         # flip CT-chunk and corresponding GT
         input_im = np.flip(input_im, axis=flip_ax)
@@ -198,25 +230,6 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
 
                 #orig = input_im.copy()
 
-                # apply specified agumentation on both image stack and ground truth
-                if 'gauss' in aug:
-                    input_im = add_gaussBlur2(input_im.copy(), aug["sigma"])
-                
-                if 'rotate' in aug:  # -> do this last maybe?
-                    input_im = add_rotation2(input_im.copy(), aug['rotate'])
-
-                if 'affine' in aug:
-                    input_im = add_affine_transform2(input_im.copy(), aug['affine'])
-
-                if 'shift' in aug:
-                    input_im = add_shift2(input_im.copy(), aug['shift'])
-
-                if 'flip' in aug:
-                    input_im = add_flip2(input_im.copy())
-
-                if 'zoom' in aug:
-                    input_im = add_scaling2(input_im.copy(), aug['zoom'])
-
                 '''
                 fig, ax = plt.subplots(1, 2)
                 ax[0].imshow(input_im, cmap="gray")
@@ -236,8 +249,28 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             curr_bag_label = np.array(ff['output']).astype(np.float32)
             ff.close()
 
-            # clip and fix volume to a specific bag size
             curr_bag = np.array(curr_bag)
+
+            # apply specified agumentation on both image stack and ground truth
+            if 'gauss' in aug:
+                curr_bag = add_gaussBlur2(curr_bag.copy(), aug["sigma"])
+
+            if 'rotate' in aug:  # -> do this last maybe?
+                curr_bag = add_rotation3(curr_bag.copy(), aug['rotate'])
+
+            if 'affine' in aug:
+                curr_bag = add_affine_transform2(curr_bag.copy(), aug['affine'])
+
+            if 'shift' in aug:
+                curr_bag = add_shift3(curr_bag.copy(), aug['shift'])
+
+            if 'flip' in aug:
+                curr_bag = add_flip3(curr_bag.copy())
+
+            if 'zoom' in aug:
+                curr_bag = add_scaling2(curr_bag.copy(), aug['zoom'])
+
+            # clip and fix volume to a specific bag size
             curr_bag = curr_bag[:bag_size]
             tmp = np.zeros((bag_size,) + (curr_bag.shape[1:])).astype(np.float32)
             tmp[:curr_bag.shape[0]] = curr_bag
