@@ -79,13 +79,22 @@ if __name__ == "__main__":
              )
         sys.exit()
 
+    # whether to use GPU or not
+    GPU = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
+
+    # dynamically grow the memory used on the GPU (FOR TF==2.*)
+    gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+    for device in gpu_devices:
+        tf.config.experimental.set_memory_growth(device, True)
+
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE = 2**7
+    BATCH_SIZE = 2**4  # 2**7
     BUFFER_SIZE = 2**2
     ds = 4
-    instance_size = (256, 256)
+    instance_size = (512, 512)  #(256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
     num_classes = 2
     learning_rate = 1e-4
     train_color_code = "\033[0;32m"
@@ -190,7 +199,7 @@ if __name__ == "__main__":
 
             print("\n{}Training...\033[0;0m".format(train_color_code))
             for i, (x, y) in enumerate(train_dataset):
-                print(x.shape)
+                #print(x.shape)
                 grad, loss, pred = step_bag_gradient((x,y), model)
                 for g in range(len(grads)):
                     grads[g] = running_average(grads[g], grad[g], i + 1)

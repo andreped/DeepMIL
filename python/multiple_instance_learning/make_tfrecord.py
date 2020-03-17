@@ -13,6 +13,13 @@ from sklearn.model_selection import StratifiedKFold
 from utils.tfrecord_utils import *
 from utils.patch_ops import *
 
+
+
+def maxminscale(x):
+    if len(np.unique(x)) > 1:
+        x = (x - x.min()) / (x.max() - x.min())
+    return x
+
 def intensity_normalize(x):
     x = (x - x.min()) / (x.max() - x.min())
     return x
@@ -23,14 +30,74 @@ def clip_negatives(x):
 
 def prepare_data(x_filename, y_label, num_classes):
     x = nib.load(str(x_filename)).get_fdata()
-    x = clip_negatives(x)
+    #x = clip_negatives(x)
+    x[x < -1024] = -1024
+    x[x > 1024] = 1024
+    x = maxminscale(x)
+
     x_slices = get_slices(x, TARGET_DIMS)
-    x_slices = x_slices.astype(np.float32)
+    x_slices = x_slices.astype(np.float16)  # np.float16, np.float32
 
     y = np.zeros((num_classes,), dtype=np.uint8)
     y[y_label] = 1
 
     return x_slices, y
+
+
+'''
+def prepare_data_thorax(x_filename, y_label, num_classes):
+
+    # read CT
+    curr_ct = str(x_filename)
+    nib_volume = nib.load(curr_ct)
+    resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
+    data = resampled_volume.get_data().astype('float32')
+
+    # resize to get (512, 512) output images
+    from scipy.ndimage import zoom
+    img_size = input_shape[1]
+    data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+
+    # pre-processing
+    data[data < hu_clip[0]] = hu_clip[0]
+    data[data > hu_clip[1]] = hu_clip[1]
+
+    # intensity normalize [0, 1]
+    data = minmaxscale(data)
+
+    # fix orientation
+    data = np.flip(data, axis=1)  # np.rot90(data, k=1, axes=(0, 1))
+    data = np.flip(data, axis=0)
+
+    # get z axis first
+    data = np.swapaxes(data, 0, -1)
+
+    # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
+    gt_nib_volume = nib.load(
+        data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
+    resampled_volume = resample_to_output(gt_nib_volume, new_spacing, order=0)
+    gt = resampled_volume.get_data().astype('float32')
+
+    # fix orientation
+    gt = np.flip(gt, axis=1)
+    gt = np.flip(gt, axis=0)
+
+    # get z axis first
+    gt = np.swapaxes(gt, 0, -1)
+
+    gt[gt > 0] = 1
+    data_shapes = data.shape
+    gt_shapes = gt.shape
+    gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
+                   data_shapes[1] / gt_shapes[1],
+                   data_shapes[2] / gt_shapes[2]], order=0)
+    data[gt == 0] = 0  # mask CT with lung mask # <- DONT MASK, one can easily do that if of interest in batchgen
+
+    data = data.astype(np.float32)
+
+    return data, y
+'''
+
 
 if __name__ == "__main__":
 
@@ -62,7 +129,7 @@ if __name__ == "__main__":
     # write the number of instances/bags for progress bar purposes
     count_file = OUT_DATA_DIR / "count.txt"
 
-    TARGET_DIMS = (256, 256)
+    TARGET_DIMS = (512, 512)  # (256, 256)
 
     ######### GET DATA FILENAMES #######
     classes = sorted([d for d in IN_DATA_DIR.iterdir() if d.is_dir()])
@@ -87,7 +154,7 @@ if __name__ == "__main__":
     X_names = np.array(X_names)
     y = np.array(y)
 
-    class_indices = [np.where(y==i)[0] for i in range(len(classes))]
+    class_indices = [np.where(y == i)[0] for i in range(len(classes))]
     class_indices = [shuffle(c, random_state=4) for c in class_indices]
 
     ######### TRAIN/TEST SPLIT #########

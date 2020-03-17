@@ -29,7 +29,7 @@ def parse_bag(record, instance_size, num_labels):
 
     image_features = tf.io.parse_single_example(record, features=features)
 
-    x = tf.io.decode_raw(image_features.get('X'), tf.float16)
+    x = tf.io.decode_raw(image_features.get('X'), tf.float16)  # tf.float16 or tf.float32
     x = tf.reshape(x, (image_features.get('num_instances'), *instance_size, 1))
     x = tf.cast(x, tf.float32)
     print(x.shape)
