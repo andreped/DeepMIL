@@ -200,6 +200,10 @@ if __name__ == "__main__":
     # K Fold for train and val
     for cur_fold, (train_idx, val_idx) in enumerate(skf.split(X_names_train, y_train)):
 
+        # only generate first fold
+        if cur_fold > 0:
+            break
+
         print("Number training samples: {}\nNumber val samples: {}".format(
             len(train_idx),
             len(val_idx),
@@ -254,7 +258,7 @@ if __name__ == "__main__":
             )
 
             count += 1
-            tf_example = volume_image_example(x_slices, y_label, len(x_slices))
+            tf_example = image_example(x_slices, y_label, len(x_slices))
             writer.write(tf_example.SerializeToString())
 
     with open(count_file, 'a') as f:

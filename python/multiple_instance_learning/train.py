@@ -59,7 +59,7 @@ def step_bag_val(inputs, model):
     x, y = inputs
 
     logits = model(x, training=True)
-    pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)
+    pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # TODO: Only keep largest attention?
     loss = tf.nn.softmax_cross_entropy_with_logits(
         labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
         logits=tf.gather(logits, top_idx),
@@ -91,10 +91,10 @@ if __name__ == "__main__":
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE = 2**4  # 2**7
+    BATCH_SIZE = 2**7  # 2**7
     BUFFER_SIZE = 2**2
     ds = 4
-    instance_size = (512, 512)  #(256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
+    instance_size = (512, 512)  # (256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
     num_classes = 2
     learning_rate = 1e-4
     train_color_code = "\033[0;32m"
@@ -222,7 +222,6 @@ if __name__ == "__main__":
                         train_accuracy.result(),
                         train_color_code,
                     )
-
 
 
 
