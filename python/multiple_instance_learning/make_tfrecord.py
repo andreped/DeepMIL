@@ -216,7 +216,7 @@ if __name__ == "__main__":
                         ))
 
                     #cur_x_slices, cur_y_label = prepare_data(
-                    cur_x_slices, cur_y_label = prepare_data_thorax(
+                    cur_x_slices, cur_y_label = prepare_data_thorax( # TODO: Introduced new preprocessing
                         X_names_train[i],
                         y_train[i],
                         len(classes),
@@ -242,7 +242,7 @@ if __name__ == "__main__":
             with open(TEST_FILENAMES_FILE, 'a') as f:
                 f.write("{},{}\n".format(x_name, y_label))
             #x_slices, y_label = prepare_data(
-            x_slices, y_label = prepare_data_thorax(
+            x_slices, y_label = prepare_data_thorax(  # TODO: Introduced new preprocessing
                 x_name,
                 y_label,
                 len(classes),
