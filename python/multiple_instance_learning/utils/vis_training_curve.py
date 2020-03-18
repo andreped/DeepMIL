@@ -71,5 +71,5 @@ ax.set_ylabel("Loss", fontsize=fontsize)
 
 plt.title("Model Validation Loss by Epoch", fontsize=fontsize)
 plt.legend(prop={'size': fontsize})
-plt.savefig("validation_loss_font_bigger.png")
+plt.savefig("validation_loss_font_bigger_new.png")
 #plt.show()

@@ -30,19 +30,19 @@ def residual_block(prev_layer, repetitions, num_filters):
         #x = Activation('relu')(x)
         y = Activation('relu')(x)
         #y = BatchNormalization()(x)
-        y = BatchNormalization()(y)  # TODO: INTRODUCED BATCHNORM HERE
+        #y = BatchNormalization()(y)  # TODO: INTRODUCED BATCHNORM HERE -> resulted in high conf on class 1 only (float16 issue with batchnorm?)
         x = Conv2D(
                 filters=num_filters,
                 kernel_size=3, 
-                kernel_regularizer=regularizers.l2(1e-2), 
-                bias_regularizer=regularizers.l2(1e-2), 
+                #kernel_regularizer=regularizers.l2(1e-2),  # TODO: Tried to remove L2-regularization
+                #bias_regularizer=regularizers.l2(1e-2),  # TODO: Tried to remove L2-regularization
                 strides=1, 
                 padding='same'
         )(x)
         x = add([x, y])
         x = Activation('relu')(x)
         #x = BatchNormalization()(x)
-        x = BatchNormalization()(x)  # TODO: INTRODUCED BATCHNORM HERE
+        #x = BatchNormalization()(x)  # TODO: INTRODUCED BATCHNORM HERE
         block = MaxPooling2D(pool_size=3, strides=2, padding='same')(x)
 
     return block 
@@ -55,8 +55,8 @@ def resnet(input_shape, num_classes, ds=2):  # num_classes, num_channels=1, ds=2
     x = Conv2D(
         filters=64//ds, 
         kernel_size=7, 
-        kernel_regularizer=regularizers.l2(1e-2), 
-        bias_regularizer=regularizers.l2(1e-2), 
+        #kernel_regularizer=regularizers.l2(1e-2),  # TODO: Tried to remove L2-regularization
+        #bias_regularizer=regularizers.l2(1e-2),  # TODO: Tried to remove L2-regularization
         strides=2, 
         padding='same'
     )(inputs)
@@ -68,7 +68,7 @@ def resnet(input_shape, num_classes, ds=2):  # num_classes, num_channels=1, ds=2
     block_4 = residual_block(prev_layer=block_3, repetitions=3, num_filters=512//ds)
 
     x = GlobalAveragePooling2D()(block_4)
-    outputs = Dense(num_classes)(x)
+    outputs = Dense(num_classes)(x)  # , activation="softmax")(x)  # TODO: Forgot sigmoid activation here in implementation??? No. softmax is applied in step_bag_gradient in train
 
     model = Model(inputs=inputs, outputs=outputs)
 

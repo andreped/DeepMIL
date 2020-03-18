@@ -2,7 +2,7 @@ from tensorflow.python.keras.layers import Input, Dense, Convolution2D, MaxPooli
     SpatialDropout2D, \
     ZeroPadding2D, Activation, AveragePooling2D, UpSampling2D, BatchNormalization, ConvLSTM2D, \
     TimeDistributed, Concatenate, Lambda, Reshape, UpSampling3D, Convolution3D, MaxPooling3D, \
-    SpatialDropout3D, multiply, GlobalAveragePooling2D, TimeDistributed, LSTM, Layer
+    SpatialDropout3D, multiply, GlobalAveragePooling2D, TimeDistributed, LSTM, Layer, GlobalMaxPooling2D
 from tensorflow.python.keras.regularizers import l2
 from tensorflow.python.keras.models import Model, Sequential
 import tensorflow as tf
@@ -473,6 +473,7 @@ class Benchline3DFCN:
         self.nb_dense_layers = 2
         self.use_bn = True
         self.final_dense = 1
+        self.use_output = True
 
     def set_dense_size(self, size):
         self.dense_size = size
@@ -501,6 +502,9 @@ class Benchline3DFCN:
 
     def set_final_dense(self, final_dense):
         self.final_dense = final_dense
+
+    def set_use_output(self, use_output):
+        self.use_output = use_output
 
     def create(self):
         """
@@ -535,16 +539,24 @@ class Benchline3DFCN:
 
         # x = convolution_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout) # VGG-esque triple conv in last level
 
+        '''
         ## define fully convolutional classifier layer
         for i, d in enumerate(range(self.nb_dense_layers)):
-            x = convolution_block_2d_fcn(x, self.dense_size, self.use_bn, self.spatial_dropout)
+            x = Convolution2D(self.dense_size, 1, activation="relu")(x)
+        #x = GlobalMaxPooling2D()(x)
 
-        x = GlobalMaxPooling2D()(x)
-
-        if self.final_dense == 1:
-            x = Dense(self.final_dense, activation="sigmoid")(x)
+        if self.use_output:
+            if self.final_dense == 1:
+                x = Convolution2D(self.final_dense, 1, activation="sigmoid")(x)
+            else:
+                x = Convolution2D(self.final_dense, 1, activation="softmax")(x)
         else:
-            x = Dense(self.final_dense, activation="softmax")(x)
+            x = Convolution2D(self.dense_size, 1)(x)  # TODO: Note, without softmax(!)
+        x = GlobalAveragePooling2D()(x)
+        '''
+        x = Convolution2D(self.dense_size, 1, activation="relu")(x)
+        x = GlobalAveragePooling2D()(x)
+        x = Dense(self.final_dense)(x)
 
         x = Model(inputs=input_layer, outputs=x)
 

@@ -24,7 +24,7 @@ def mil_prediction(pred, n=1):
     return (tf.gather(pred, i), i)
 
 def show_progbar(cur_epoch, total_epochs, cur_step, num_instances, loss, acc, color_code):
-    TEMPLATE = "\r{}Epoch {}/{} [{:{}<{}}] Loss: {:>3.4f} Acc: {:>3.2%}\033[0;0m"
+    TEMPLATE = "\r{}Epoch {}/{} [{:{}<{}}] loss: {:>3.4f} acc: {:>3.2%}\033[0;0m"
     progbar_length = 20
 
     sys.stdout.write(TEMPLATE.format(
@@ -39,11 +39,29 @@ def show_progbar(cur_epoch, total_epochs, cur_step, num_instances, loss, acc, co
     ))
     sys.stdout.flush()
 
+def show_progbar_merged(cur_epoch, total_epochs, cur_step, num_instances, loss, val_loss, acc, val_acc, color_code):
+    TEMPLATE = "\r\r{}Epoch {}/{} [{:{}<{}}] loss: {:>3.4f} acc: {:>3.2%} val_loss: {:>3.4f} val_acc: {:>3.2%}\033[0;0m"
+    progbar_length = 40
+
+    sys.stdout.write(TEMPLATE.format(
+        color_code,
+        cur_epoch,
+        total_epochs,
+        "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
+        "-",
+        progbar_length,
+        loss,
+        acc,
+        val_loss,
+        val_acc
+    ))
+    sys.stdout.flush()
+
 def step_bag_gradient(inputs, model):
     x, y = inputs
 
     with tf.GradientTape() as tape:
-        logits = model(x, training=True)
+        logits = model(x, training=True)  # TODO: NO. tf.nn.softmax(logits) is here, not in model
         pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
         loss = tf.nn.softmax_cross_entropy_with_logits(
             labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
@@ -58,7 +76,7 @@ def step_bag_gradient(inputs, model):
 def step_bag_val(inputs, model):
     x, y = inputs
 
-    logits = model(x, training=True)  # TODO: Do I want to have training=True here ?
+    logits = model(x, training=False)  # TODO: Do I want to have training=True here? Changed to False.
     pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
     loss = tf.nn.softmax_cross_entropy_with_logits(
         labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
@@ -91,12 +109,12 @@ if __name__ == "__main__":
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 10000
-    BATCH_SIZE = 64  # 2**7
+    BATCH_SIZE = 128  # 2**7
     BUFFER_SIZE = 2**2
-    ds = 4  # 4
+    ds = 2  # 4
     instance_size = (512, 512)  # (256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
     num_classes = 2
-    learning_rate = 5e-5  # 1e-4
+    learning_rate = 1e-4  # 1e-4
     train_color_code = "\033[0;32m"
     val_color_code = "\033[0;36m"
     CONVERGENCE_EPOCH_LIMIT = 50
@@ -127,26 +145,28 @@ if __name__ == "__main__":
 
 
     # TODO: WHETHER TO USE PRE-TRAINED RESNET OR TRAIN ENCODER-CLASSIFIER-NET FROM SCRATCH
-    model_type = "resnetish"  # "2DCNN"  # "resnetish"
+    model_type = "resnetish"  # "2DFCN"  # "resnetish"  # TODO: I get OOM using 2DFCN
 
     # Actual instantiation happens for each fold
     if model_type == "resnetish":
         model = resnet(input_shape=(*instance_size, 1), num_classes=num_classes, ds=ds)  # TODO: NOTE THIS HAS BEEN CHANGED!!!
-    elif model_type == "2DCNN":  # TODO: Doesnt work. Does network have to be FCNs for these to be used in pipeline?
+    elif model_type == "2DFCN":  # TODO: Doesnt work. Does network have to be FCNs for these to be used in pipeline?
         import sys
         sys.path.append("/home/andrep/workspace/DeepMIL/python")
-        from models import Benchline3DCNN
+        from models import Benchline3DFCN
         nb_dense_layers = 1
         dense_val = 128
-        convs = [18, 32, 32, 64, 64, 128, 128]
+        convs = [16, 32, 32, 64, 64, 128, 128]
         dense_dropout = 0
 
-        network = Benchline3DCNN(input_shape=(*instance_size, 1), nb_classes=num_classes)
+        print((*instance_size, 1))
+        network = Benchline3DFCN(input_shape=(*instance_size, 1), nb_classes=num_classes)
         network.nb_dense_layers = nb_dense_layers
         network.dense_size = dense_val
         network.set_convolutions(convs)
         network.set_dense_dropout(dense_dropout)
         network.set_final_dense(num_classes)
+        network.set_use_bn(False)
         model = network.create()
 
     INIT_WEIGHT_PATH = WEIGHT_DIR / "init_weights.h5"
@@ -187,15 +207,15 @@ if __name__ == "__main__":
                 instance_size,
                 num_labels=num_classes))
         """
-        augmentations = [flip_dim1, flip_dim2] #Removed rotate2d
+        augmentations = [flip_dim1, flip_dim2]  # Removed rotate2d
         for f in augmentations:
             train_dataset = train_dataset.map(
                 lambda x, y:
-                tf.cond(tf.random.uniform([], 0, 1) > 0.9, # with 90% chance, call first `lambda`:
-                    lambda: (f(x), y),  # apply augmentation `f`, don't touch `y`
-                    lambda: (x, y),     # don't apply any aug
-                ), num_parallel_calls=4,
-            )
+                tf.cond(tf.random.uniform([], 0, 1) > 0.9,  # with 90% chance, call first `lambda`:
+                        lambda: (f(x), y),  # apply augmentation `f`, don't touch `y`
+                        lambda: (x, y),     # don't apply any aug
+                        ), num_parallel_calls=4,
+                )
         """
         # metrics
         train_accuracy = tf.keras.metrics.Accuracy(name='train_acc')
@@ -216,13 +236,23 @@ if __name__ == "__main__":
         best_epoch = 1
         for cur_epoch in range(N_EPOCHS):
 
-            print("\n")  # {}Training...\033[0;0m".format(train_color_code))
+            # new line for each epoch
+            print("\n")
+
+            # for each epoch, shuffle dataset  # TODO: Is this necessary? Maybe tfrecord does this in the background
+            train_dataset = train_dataset.take(num_instances["train_{}".format(cur_fold)]).shuffle(BUFFER_SIZE)
+
+            #print("\n")  # {}Training...\033[0;0m".format(train_color_code))
             for i, (x, y) in enumerate(train_dataset):
                 #print(x.shape)
                 grad, loss, pred = step_bag_gradient((x,y), model)
                 for g in range(len(grads)):
                     grads[g] = running_average(grads[g], grad[g], i + 1)
 
+                # TODO: CHECK IF THE PROBLEM IS WITH SOFTMAX OR SIMILAR
+                #print()
+                #print(y, pred)
+                #print(tf.argmax(tf.convert_to_tensor([y]), axis=1), tf.argmax(pred, axis=1))
                 train_accuracy.update_state(
                     tf.argmax(tf.convert_to_tensor([y]), axis=1),
                     tf.argmax(pred, axis=1),
@@ -241,11 +271,12 @@ if __name__ == "__main__":
                         train_accuracy.result(),
                         train_color_code,
                     )
+            final_i = i
 
 
 
             # validation metrics
-            print("\n")  # {}Validating...\033[0;0m".format(val_color_code))
+            #print("\n")  # {}Validating...\033[0;0m".format(val_color_code))
             for i, (x, y) in enumerate(val_dataset):
                 loss, pred = step_bag_val((x,y), model)
 
@@ -265,6 +296,20 @@ if __name__ == "__main__":
                         val_accuracy.result(),
                         val_color_code,
                     )
+
+            # remove and merge the progbars into one
+            merged_color_code = "\033[0;0m"
+            show_progbar_merged(
+                cur_epoch + 1,
+                N_EPOCHS,
+                (final_i + 1),
+                train_n,
+                train_loss.result(),
+                train_accuracy.result(),
+                val_loss.result(),
+                val_accuracy.result(),
+                merged_color_code
+            )
 
 
 
