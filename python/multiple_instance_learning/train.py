@@ -13,6 +13,15 @@ from utils.tfrecord_utils import *
 from utils.pad import *
 from models_resnet.resnet import *
 
+from timeit import default_timer as timer  # for timing stuff
+
+# for float16 optimization
+from tensorflow.keras import backend as K
+K.set_floatx('float16')
+K.set_epsilon(1e-4)
+
+#from time
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 def running_average(old_average, cur_val, n):
@@ -23,39 +32,52 @@ def mil_prediction(pred, n=1):
     i = i[len(pred) - n : len(pred)]
     return (tf.gather(pred, i), i)
 
-def show_progbar(cur_epoch, total_epochs, cur_step, num_instances, loss, acc, color_code):
-    TEMPLATE = "\r{}Epoch {}/{} [{:{}<{}}] loss: {:>3.4f} acc: {:>3.2%}\033[0;0m"
+def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, time_per_step):
+    TEMPLATE = "\r{}{}/{} [{:{}<{}}] - ETA: {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.4f} \033[0;0m"
+
+    progbar_length = 20
+
+    curr_batch = int(cur_step // batch_size)
+    nb_batches = int(num_instances // batch_size)
+    ETA = (nb_batches - curr_batch) * time_per_step
+
+    sys.stdout.write(TEMPLATE.format(
+        color_code,
+        curr_batch,
+        nb_batches,
+        "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
+        "-",
+        progbar_length,
+        int(ETA // 60),
+        int(np.round(ETA % 60)),
+        time_per_step,
+        loss,
+        acc
+    ))
+    sys.stdout.flush()
+
+
+def show_progbar_merged(cur_step, num_instances, loss, val_loss, acc, val_acc, color_code, batch_size, time_per_step, time_per_epoch):
+    TEMPLATE = "\r{}{}/{} [{:{}<{}}] - {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.2%} - val_loss: {:>3.4f} - val_acc: {:>3.4f}\033[0;0m"
     progbar_length = 20
 
     sys.stdout.write(TEMPLATE.format(
         color_code,
-        cur_epoch,
-        total_epochs,
+        int(cur_step // batch_size),
+        int(np.ceil(num_instances / batch_size)),
         "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
         "-",
         progbar_length,
-        loss,
-        acc,
-    ))
-    sys.stdout.flush()
-
-def show_progbar_merged(cur_epoch, total_epochs, cur_step, num_instances, loss, val_loss, acc, val_acc, color_code):
-    TEMPLATE = "\r\r{}Epoch {}/{} [{:{}<{}}] loss: {:>3.4f} acc: {:>3.2%} val_loss: {:>3.4f} val_acc: {:>3.2%}\033[0;0m"
-    progbar_length = 40
-
-    sys.stdout.write(TEMPLATE.format(
-        color_code,
-        cur_epoch,
-        total_epochs,
-        "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
-        "-",
-        progbar_length,
+        int(time_per_epoch // 60),
+        int(np.round(time_per_epoch % 60)),
+        time_per_step,
         loss,
         acc,
         val_loss,
         val_acc
     ))
     sys.stdout.flush()
+
 
 def step_bag_gradient(inputs, model):
     x, y = inputs
@@ -108,17 +130,18 @@ if __name__ == "__main__":
 
     ########## HYPERPARAMETER SETUP ##########
 
-    N_EPOCHS = 10000
-    BATCH_SIZE = 128  # 2**7
+    N_EPOCHS = 200  # 10000
+    BATCH_SIZE = 8  # 2**7
     BUFFER_SIZE = 2**2
     ds = 2  # 4
     instance_size = (512, 512)  # (256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
     num_classes = 2
-    learning_rate = 1e-4  # 1e-4
-    train_color_code = "\033[0;32m"
-    val_color_code = "\033[0;36m"
+    learning_rate = 5e-3  # 1e-4
+    train_color_code = "\033[0;0m"  # "\033[0;32m"
+    val_color_code = "\033[0;0m"  # "\033[0;36m"
     CONVERGENCE_EPOCH_LIMIT = 50
     epsilon = 1e-4
+    nb_instances_mov_avg = 5
 
     ########## DIRECTORY SETUP ##########
 
@@ -191,7 +214,13 @@ if __name__ == "__main__":
 
         ######### MODEL AND CALLBACKS #########
         model.load_weights(str(INIT_WEIGHT_PATH))
-        opt = tf.optimizers.Adam(learning_rate=learning_rate)
+
+        # training ADAM with float16 precision (mixed)
+        #tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
+        #opt = tf.optimizers.Adam(learning_rate=learning_rate)  #, epsilon=1e-4)  # TODO: Need a slightly larger epsilon for it to work, default was not set here
+        #opt = tf.keras.mixed_precision.experimental.LossScaleOptimizer(opt, "dynamic")
+        opt = tf.optimizers.SGD(lr=1e-2, momentum=0.9, nesterov=False)
+
 
         ######### DATA IMPORT #########
         train_dataset = tf.data.TFRecordDataset(
@@ -236,14 +265,24 @@ if __name__ == "__main__":
         best_epoch = 1
         for cur_epoch in range(N_EPOCHS):
 
+            time_list_train = []
+
+            # epoch start time
+            epoch_start = timer()
+
+            # curr time for train
+            curr_time = timer()
+
             # new line for each epoch
             print("\n")
+            print("Epoch %d/%d" % (cur_epoch + 1, N_EPOCHS))
 
             # for each epoch, shuffle dataset  # TODO: Is this necessary? Maybe tfrecord does this in the background
             train_dataset = train_dataset.take(num_instances["train_{}".format(cur_fold)]).shuffle(BUFFER_SIZE)
 
             #print("\n")  # {}Training...\033[0;0m".format(train_color_code))
             for i, (x, y) in enumerate(train_dataset):
+
                 #print(x.shape)
                 grad, loss, pred = step_bag_gradient((x,y), model)
                 for g in range(len(grads)):
@@ -262,22 +301,29 @@ if __name__ == "__main__":
                 if (i+1)%BATCH_SIZE==0 or (i+1)==train_n:
                     opt.apply_gradients(zip(grads, model.trainable_variables))
 
+                    time_list_train.append(timer() - curr_time)
+                    curr_time = timer()
+                    time_avg = np.mean(time_list_train[::-1][:nb_instances_mov_avg])  # average across k last
+
                     show_progbar(
-                        cur_epoch + 1,
-                        N_EPOCHS,
                         (i + 1),
                         train_n,
                         train_loss.result(),
                         train_accuracy.result(),
                         train_color_code,
+                        BATCH_SIZE,
+                        time_avg
                     )
             final_i = i
 
-
+            # epoch start time for validation set
+            time_list_val = []
+            curr_time = timer()
 
             # validation metrics
             #print("\n")  # {}Validating...\033[0;0m".format(val_color_code))
             for i, (x, y) in enumerate(val_dataset):
+
                 loss, pred = step_bag_val((x,y), model)
 
                 val_accuracy.update_state(
@@ -287,28 +333,36 @@ if __name__ == "__main__":
                 val_loss.update_state(loss)
 
                 if (i+1)%BATCH_SIZE==0 or (i+1)==val_n:
+
+                    time_list_val.append(timer() - curr_time)
+                    curr_time = timer()
+                    time_avg = np.mean(time_list_val[::-1][:nb_instances_mov_avg])  # average across k last
+
                     show_progbar(
-                        cur_epoch + 1,
-                        N_EPOCHS,
                         (i + 1),
                         val_n,
                         val_loss.result(),
                         val_accuracy.result(),
                         val_color_code,
+                        BATCH_SIZE,
+                        time_avg
                     )
 
+            # epoch end time
+            epoch_end = timer()
+
             # remove and merge the progbars into one
-            merged_color_code = "\033[0;0m"
             show_progbar_merged(
-                cur_epoch + 1,
-                N_EPOCHS,
                 (final_i + 1),
                 train_n,
                 train_loss.result(),
                 val_loss.result(),
                 train_accuracy.result(),
                 val_accuracy.result(),
-                merged_color_code
+                "\033[0;0m",
+                BATCH_SIZE,
+                np.mean(time_list_train),
+                epoch_end - epoch_start
             )
 
 

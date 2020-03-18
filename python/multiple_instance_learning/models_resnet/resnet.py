@@ -69,6 +69,7 @@ def resnet(input_shape, num_classes, ds=2):  # num_classes, num_channels=1, ds=2
 
     x = GlobalAveragePooling2D()(block_4)
     outputs = Dense(num_classes)(x)  # , activation="softmax")(x)  # TODO: Forgot sigmoid activation here in implementation??? No. softmax is applied in step_bag_gradient in train
+    #outputs = Dense(num_classes, dtype='float32')(x)  # TODO: Perhaps need to cast to float32 in last layer before softmax?
 
     model = Model(inputs=inputs, outputs=outputs)
 
