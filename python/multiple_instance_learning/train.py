@@ -305,8 +305,8 @@ if __name__ == "__main__":
                 (final_i + 1),
                 train_n,
                 train_loss.result(),
-                train_accuracy.result(),
                 val_loss.result(),
+                train_accuracy.result(),
                 val_accuracy.result(),
                 merged_color_code
             )
