@@ -17,8 +17,8 @@ from timeit import default_timer as timer  # for timing stuff
 
 # for float16 optimization
 from tensorflow.keras import backend as K
-K.set_floatx('float16')
-K.set_epsilon(1e-4)
+K.set_floatx('float32')  # 'float16')
+K.set_epsilon(1e-7)  # 1e-4)
 
 #from time
 
@@ -395,7 +395,7 @@ if __name__ == "__main__":
 
             #if val_loss.result() > best_val_loss and\
             #        np.abs(val_loss.result() - best_val_loss) > epsilon:
-            if val_accuracy.result() < best_val_accuracy and\
+            if val_accuracy.result() < best_val_acc and\
                     nb.abs(val_accuracy.result() - best_val_acc) > epsilon:
                 convergence_epoch_counter += 1
             else:
