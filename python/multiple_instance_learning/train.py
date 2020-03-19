@@ -38,7 +38,7 @@ def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, tim
     progbar_length = 20
 
     curr_batch = int(cur_step // batch_size)
-    nb_batches = int(num_instances // batch_size)
+    nb_batches = int(np.ceil(num_instances / batch_size))
     ETA = (nb_batches - curr_batch) * time_per_step
 
     sys.stdout.write(TEMPLATE.format(
@@ -127,6 +127,7 @@ if __name__ == "__main__":
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
     for device in gpu_devices:
         tf.config.experimental.set_memory_growth(device, True)
+        #tf.config.gpu.set_per_process_memory_fraction(device, 0.75) # <- use fraction of GPU instead
 
     ########## HYPERPARAMETER SETUP ##########
 
@@ -136,7 +137,7 @@ if __name__ == "__main__":
     ds = 2  # 4
     instance_size = (512, 512)  # (256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
     num_classes = 2
-    learning_rate = 5e-3  # 1e-4
+    learning_rate = 1e-4  # 1e-4
     train_color_code = "\033[0;0m"  # "\033[0;32m"
     val_color_code = "\033[0;0m"  # "\033[0;36m"
     CONVERGENCE_EPOCH_LIMIT = 50
@@ -217,9 +218,9 @@ if __name__ == "__main__":
 
         # training ADAM with float16 precision (mixed)
         #tf.keras.mixed_precision.experimental.set_policy('mixed_float16')
-        #opt = tf.optimizers.Adam(learning_rate=learning_rate)  #, epsilon=1e-4)  # TODO: Need a slightly larger epsilon for it to work, default was not set here
+        opt = tf.optimizers.Adam(learning_rate=learning_rate)  #, epsilon=1e-4)  # TODO: Need a slightly larger epsilon for it to work, default was not set here
         #opt = tf.keras.mixed_precision.experimental.LossScaleOptimizer(opt, "dynamic")
-        opt = tf.optimizers.SGD(lr=1e-2, momentum=0.9, nesterov=False)
+        #opt = tf.optimizers.SGD(lr=1e-2, momentum=0.9, nesterov=False)
 
 
         ######### DATA IMPORT #########
