@@ -31,12 +31,12 @@ def parse_bag(record, instance_size, num_labels):
 
     x = tf.io.decode_raw(image_features.get('X'), tf.float16)  # tf.float16 or tf.float32
     x = tf.reshape(x, (image_features.get('num_instances'), *instance_size, 1))
-    x = tf.cast(x, tf.float32)
+    x = tf.cast(x, tf.float16)  # tf.float16 or tf.float32 # TODO: Forgot float16 cast here eariler?
     print(x.shape)
 
     y = tf.io.decode_raw(image_features.get('Y'), tf.uint8)
     y = tf.reshape(y, (num_labels, ))
-    y = tf.cast(y, tf.float32)
+    y = tf.cast(y, tf.float16)  # TODO: Cast to float16? I used float32 earlier here...
 
     return x, y
 

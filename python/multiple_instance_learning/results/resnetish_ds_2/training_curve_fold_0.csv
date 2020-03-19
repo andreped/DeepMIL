@@ -1,2 +1,1 @@
 epoch,train_loss,train_acc,val_loss,val_acc
-1,0.6758,0.4910,0.6914,0.5000

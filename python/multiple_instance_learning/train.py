@@ -58,7 +58,7 @@ def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, tim
 
 
 def show_progbar_merged(cur_step, num_instances, loss, val_loss, acc, val_acc, color_code, batch_size, time_per_step, time_per_epoch):
-    TEMPLATE = "\r{}{}/{} [{:{}<{}}] - {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.2%} - val_loss: {:>3.4f} - val_acc: {:>3.4f}\033[0;0m"
+    TEMPLATE = "\r{}{}/{} [{:{}<{}}] - {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.4f} - val_loss: {:>3.4f} - val_acc: {:>3.4f}\033[0;0m"
     progbar_length = 20
 
     sys.stdout.write(TEMPLATE.format(
@@ -86,7 +86,7 @@ def step_bag_gradient(inputs, model):
         logits = model(x, training=True)  # TODO: NO. tf.nn.softmax(logits) is here, not in model
         pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
         loss = tf.nn.softmax_cross_entropy_with_logits(
-            labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
+            labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),  # TODO: Perhaps y is uint8 here (?)
             logits=tf.gather(logits, top_idx),
         )
         loss = tf.reduce_mean(loss)
@@ -98,7 +98,7 @@ def step_bag_gradient(inputs, model):
 def step_bag_val(inputs, model):
     x, y = inputs
 
-    logits = model(x, training=False)  # TODO: Do I want to have training=True here? Changed to False.
+    logits = model(x, training=True)  # TODO: Do I want to have training=True here? It was set as True (as for train)
     pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
     loss = tf.nn.softmax_cross_entropy_with_logits(
         labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
@@ -393,13 +393,16 @@ if __name__ == "__main__":
                 ))
                 break
 
-            if val_loss.result() > best_val_loss and\
-                    np.abs(val_loss.result() - best_val_loss) > epsilon:
+            #if val_loss.result() > best_val_loss and\
+            #        np.abs(val_loss.result() - best_val_loss) > epsilon:
+            if val_accuracy.result() < best_val_accuracy and\
+                    nb.abs(val_accuracy.result() - best_val_acc) > epsilon:
                 convergence_epoch_counter += 1
             else:
                 convergence_epoch_counter = 0
 
-            if val_loss.result() < best_val_loss:
+            #if val_loss.result() < best_val_loss:
+            if val_accuracy.result() > best_val_acc:  # Save on best validation accuracy instead
                 best_epoch = cur_epoch + 1
                 best_val_loss = val_loss.result()
                 best_val_acc = val_accuracy.result()
