@@ -1,5 +1,5 @@
 import tensorflow as tf
-tf.compat.v1.disable_eager_execution()
+#tf.compat.v1.disable_eager_execution()
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.optimizers import SGD, Adam
 from tensorflow.python.keras.regularizers import l2
@@ -64,7 +64,7 @@ def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, tim
         int(np.round(ETA % 60)),
         time_per_step,
         loss,
-        str(acc)
+        acc
     ))
     sys.stdout.flush()
 
@@ -270,7 +270,7 @@ if __name__ == '__main__':
             logits = model(x, training=True)  # TODO: NO. tf.nn.softmax(logits) is here, not in model
             pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
             loss = tf.nn.softmax_cross_entropy_with_logits(
-                labels=tf.reshape(tf.tile(tf.one_hot(y,2)[0], [1]), (1, 2)),  # TODO: Perhaps y is uint8 here (?)
+                labels=tf.reshape(y, (1, 2)),  # TODO: Perhaps y is uint8 here (?)
                 logits=tf.gather(logits, top_idx),
             )
             loss = tf.reduce_mean(loss)
@@ -581,6 +581,8 @@ if __name__ == '__main__':
 
             for j,(x,y) in enumerate(train_gen):
                 for i,(x_curr,y_curr) in enumerate(zip(x,y)):
+                    y_curr = tf.convert_to_tensor([int(y_curr[0])])
+                    y_curr = tf.one_hot(y_curr,2)
                     grad, loss, pred = step_bag_gradient((x_curr,y_curr), model)
                     for g in range(len(grads)):
                         grads[g] = running_average(grads[g], grad[g], i + 1)
@@ -590,7 +592,7 @@ if __name__ == '__main__':
                     #print(y, pred)
                     #print(tf.argmax(tf.convert_to_tensor([y]), axis=1), tf.argmax(pred, axis=1))
                     train_accuracy.update_state(
-                        tf.argmax(tf.convert_to_tensor([y[0][0]]), axis=1),
+                        tf.argmax(y_curr,axis=1),
                         tf.argmax(pred, axis=1),
                     )
                     train_loss.update_state(loss)
