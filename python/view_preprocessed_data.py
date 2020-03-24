@@ -17,6 +17,7 @@ import nibabel as nib
 from nibabel.processing import *
 from copy import deepcopy
 from lungmask import lungmask
+import shutil
 
 
 def import_set(tmp, file):
@@ -101,52 +102,52 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # -1
 
     #dataset = '040320_binary_healthy_sick_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
-    dataset = '040320_binary_healthy_sick_shape_(1,128,128)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
-    data_path = "/home/andrep/workspace/DeepMIL/data/" + dataset + "/"
+    #dataset = '040320_binary_healthy_sick_shape_(1,128,128)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
+    dataset = "230320_binary_healthy_emphysema_shape_(1,128,128)_huclip_[-1024,1024]_spacing_[1,1,3]"
+    data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/" + dataset + "/"
 
     features_flag = False  # Default: False
 
     sets = ["negative", "positive"] #["Healthy", "Sick"]
 
-    locs = os.listdir(data_path)
-    np.random.shuffle(locs)
+    locs = os.listdir(data_path)[::-1]
+    #locs = locs[3104:]
+    #np.random.shuffle(locs)
 
     for filename in tqdm(locs, "CT:"):
 
-        print("\n--")
-        print(filename)
-        image = filename
-        curr_label = int(filename.split("_")[0])
-        filename = data_path + filename + "/"
-        data = []
-        lungmask = []
-        features = []
+        #print()
+        #print("\n--")
+        #print(filename)
+        path = data_path + filename + "/"
 
         # get slices nicely sorted
-        slices = np.array(os.listdir(filename))
-        tmp = np.array([int(x.split(".")[0]) for x in slices])
-        slices = slices[np.argsort(tmp)]
+        file = "1.h5"  # np.array(os.listdir(filename))[0]
 
-        # randomly extract bag_batch number of samples from
-        for file in tqdm(slices, "Slices: "):
+        try:
+            f = h5py.File(path + file, 'r')
+        except:
+            print("didn't fucking work")
+        data = np.array(f['data']).astype(np.float32)
+        gt = np.array(f['lungmask']).astype(np.float32)
+        if features_flag:
+            features = np.array(f['features']).astype(np.float32)
+        f.close()
 
-            f = h5py.File(filename + file, 'r')
-            input_im = np.array(f['data']).astype(np.float32)
-            lungmask_im = np.array(f['lungmask']).astype(np.float32)
-            if features_flag:
-                feat = np.array(f['features']).astype(np.float32)
-                features.append(feat)
-            f.close()
+        #'''
+        
+        image = filename
+        curr_label = int(filename.split("_")[0])
 
-            data.append(input_im)
-            lungmask.append(lungmask_im)
+        #data.append(input_im)
+        #lungmask.append(lungmask_im)
 
-        print(":)")
+
         if features_flag:
             features = np.array(features)
 
         data_orig = np.array(data)
-        gt = np.array(lungmask)
+        #gt = np.array(lungmask)
 
         masked = data_orig.copy()
         masked[gt == 0] = 0
@@ -189,3 +190,5 @@ if __name__ == "__main__":
         slider2.set_val(slider2.val)
 
         plt.show()
+        
+        #'''

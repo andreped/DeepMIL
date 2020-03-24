@@ -120,7 +120,8 @@ if __name__ == "__main__":
         sys.exit()
 
     # whether to use GPU or not
-    GPU = "0"
+    GPU = "0"  # "1"
+
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 
     # dynamically grow the memory used on the GPU (FOR TF==2.*)
@@ -132,7 +133,7 @@ if __name__ == "__main__":
     ########## HYPERPARAMETER SETUP ##########
 
     N_EPOCHS = 200  # 10000
-    BATCH_SIZE = 8  # 2**7
+    BATCH_SIZE = 1  # 2**7
     BUFFER_SIZE = 2**2
     ds = 2  # 4
     instance_size = (512, 512)  # (256, 256) # TODO: BUG HERE SOMEWHERE? SOMETHING HARDCODED?
@@ -285,6 +286,7 @@ if __name__ == "__main__":
             for i, (x, y) in enumerate(train_dataset):
 
                 #print(x.shape)
+                #print(x)
                 grad, loss, pred = step_bag_gradient((x,y), model)
                 for g in range(len(grads)):
                     grads[g] = running_average(grads[g], grad[g], i + 1)

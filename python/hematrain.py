@@ -1,5 +1,5 @@
 import tensorflow as tf
-#tf.compat.v1.disable_eager_execution()
+#tf.compat.v1.disable_eager_execution()  # TODO: Don't use this with hematomaMIL (!)
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.optimizers import SGD, Adam
 from tensorflow.python.keras.regularizers import l2
@@ -49,7 +49,7 @@ def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, tim
 
     progbar_length = 20
 
-    curr_batch = int(cur_step // batch_size)
+    curr_batch = cur_step  # int(cur_step // batch_size)
     nb_batches = int(num_instances // batch_size)
     ETA = (nb_batches - curr_batch) * time_per_step
 
@@ -57,7 +57,7 @@ def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, tim
         color_code,
         curr_batch,
         nb_batches,
-        "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
+        "=" * min(int(progbar_length*(cur_step/nb_batches)), progbar_length),
         "-",
         progbar_length,
         int(ETA // 60),
@@ -75,7 +75,7 @@ def show_progbar_merged(cur_step, num_instances, loss, val_loss, acc, val_acc, c
 
     sys.stdout.write(TEMPLATE.format(
         color_code,
-        int(cur_step // batch_size),
+        cur_step,  # int(cur_step // batch_size),
         int(np.ceil(num_instances / batch_size)),
         "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
         "-",
@@ -99,6 +99,7 @@ if __name__ == '__main__':
 
     # whether to use GPU or not
     GPU = config["GPU"]["useGPU"]
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 
     # dynamically grow the memory used on the GPU (FOR TF==2.*)
@@ -167,14 +168,14 @@ if __name__ == '__main__':
     #metric = config["Training"]["metric"]  # <- This should be set automatically given which model is chosen
 
     # path to training data
-    data_name = datagen_date + "_binary_healthy_sick" + \
+    data_name = datagen_date + "_binary_healthy_emphysema" + \
                 "_shape_" + str(input_shape).replace(" ", "") + \
                 "_huclip_" + str(hu_clip).replace(" ", "") + \
                 "_spacing_" + str(new_spacing).replace(" ", "")
     data_path += data_name + "/"  # NOTE: Updates data_path here to the preprocessed data (!)
 
     # name of output (to save everything as
-    name = curr_date + "_" + curr_time + "_" + "binary_healthy_sick"
+    name = curr_date + "_" + curr_time + "_" + "binary_healthy_emphysema"
 
     # save current configuration file with all corresponding data
     config_out_path = configs_path + "config_" + name + ".ini"
@@ -228,6 +229,11 @@ if __name__ == '__main__':
     test_dir = [item for sublist in test_dir for item in sublist]
     val_dir = [item for sublist in val_dir for item in sublist]
     train_dir = [item for sublist in train_dir for item in sublist]
+
+    CONVERGENCE_EPOCH_LIMIT = 50
+
+    train_dir = train_dir[:64]
+    val_dir = val_dir[:64]
 
     # save random generated data sets
     if os.path.exists(datasets_path + 'dataset_' + name + '.h5'):
@@ -285,7 +291,7 @@ if __name__ == '__main__':
         logits = model(x, training=True)  # TODO: Do I want to have training=True here? It was set as True (as for train)
         pred, top_idx = mil_prediction(tf.nn.softmax(logits), n=1)  # n=1 # TODO: Only keep largest attention?
         loss = tf.nn.softmax_cross_entropy_with_logits(
-            labels=tf.reshape(tf.tile(y, [1]), (1, len(y))),
+            labels=tf.reshape(y, (1, 2)),
             logits=tf.gather(logits, top_idx),
         )
         loss = tf.reduce_mean(loss)
@@ -538,14 +544,14 @@ if __name__ == '__main__':
         val_gen = batch_gen_features3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
                                       nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                                       mask_flag=mask_flag, bag_size=bag_size)
-    if "hema" in model_type:
+    if model_type == "hema2DMIL":  # "hema" in model_type:
         # metrics
         train_accuracy = tf.keras.metrics.Accuracy(name='train_acc')
         train_loss = tf.keras.metrics.Mean(name='train_loss')
         val_accuracy = tf.keras.metrics.Accuracy(name='val_acc')
         val_loss = tf.keras.metrics.Mean(name='val_loss')
 
-        opt = tf.optimizers.SGD(lr=1e-2, momentum=0.9, nesterov=False)
+        opt = tf.optimizers.Adam(lr=lr)  # tf.optimizers.SGD(lr=1e-2, momentum=0.9, nesterov=False)
 
         ######### TRAINING #########
         best_val_loss = 100000
@@ -577,27 +583,28 @@ if __name__ == '__main__':
             print("\n")
             print("Epoch %d/%d" % (cur_epoch + 1, epochs))
 
+            stop_flag = False
+
             #train_dataset = train_dataset.take(num_instances["train_{}".format(cur_fold)]).shuffle(BUFFER_SIZE)
 
-            for j,(x,y) in enumerate(train_gen):
-                for i,(x_curr,y_curr) in enumerate(zip(x,y)):
+            for j, (x, y) in enumerate(train_gen):
+                if stop_flag:
+                    break
+                for i, (x_curr, y_curr) in enumerate(zip(x, y)):
                     y_curr = tf.convert_to_tensor([int(y_curr[0])])
-                    y_curr = tf.one_hot(y_curr,2)
-                    grad, loss, pred = step_bag_gradient((x_curr,y_curr), model)
+                    y_curr = tf.one_hot(y_curr, 2)
+                    grad, loss, pred = step_bag_gradient((x_curr, y_curr), model)
                     for g in range(len(grads)):
                         grads[g] = running_average(grads[g], grad[g], i + 1)
 
                     # TODO: CHECK IF THE PROBLEM IS WITH SOFTMAX OR SIMILAR
-                    #print()
-                    #print(y, pred)
-                    #print(tf.argmax(tf.convert_to_tensor([y]), axis=1), tf.argmax(pred, axis=1))
                     train_accuracy.update_state(
-                        tf.argmax(y_curr,axis=1),
+                        tf.argmax(y_curr, axis=1),
                         tf.argmax(pred, axis=1),
                     )
                     train_loss.update_state(loss)
 
-                    if (i+1)%batch_size==0:
+                    if ((i+1)%batch_size==0) or (j+1 == int(train_steps)):
                         opt.apply_gradients(zip(grads, model.trainable_variables))
 
                         time_list_train.append(timer() - curr_time)
@@ -605,7 +612,7 @@ if __name__ == '__main__':
                         time_avg = np.mean(time_list_train[::-1][:nb_instances_mov_avg])  # average across k last
 
                         show_progbar(
-                            (i + 1),
+                            (j + 1),
                             train_n,
                             train_loss.result(),
                             train_accuracy.result(),
@@ -614,31 +621,41 @@ if __name__ == '__main__':
                             time_avg
                         )
 
+                    if (j+1 == int(train_steps)):
+                        stop_flag = True
+                        break
+
             # epoch start time for validation set
             time_list_val = []
             curr_time = timer()
 
+            final_j = j
+            stop_flag = False
+
             # validation metrics
             #print("\n")  # {}Validating...\033[0;0m".format(val_color_code))
             for j, (x, y) in enumerate(val_gen):
+                if stop_flag:
+                    break
                 for i,(x_curr,y_curr) in enumerate(zip(x,y)):
-
+                    y_curr = tf.convert_to_tensor([int(y_curr[0])])
+                    y_curr = tf.one_hot(y_curr, 2)
                     loss, pred = step_bag_val((x_curr,y_curr), model)
 
                     val_accuracy.update_state(
-                        tf.argmax(tf.convert_to_tensor([y]), axis=1),
+                        tf.argmax(y_curr, axis=1),
                         tf.argmax(pred, axis=1),
                     )
                     val_loss.update_state(loss)
 
-                    if (i+1)%batch_size==0:
+                    if ((i+1)%batch_size==0) or (j+1 == int(val_steps)):
 
                         time_list_val.append(timer() - curr_time)
                         curr_time = timer()
                         time_avg = np.mean(time_list_val[::-1][:nb_instances_mov_avg])  # average across k last
 
                         show_progbar(
-                            (i + 1),
+                            (j + 1),
                             val_n,
                             val_loss.result(),
                             val_accuracy.result(),
@@ -647,12 +664,16 @@ if __name__ == '__main__':
                             time_avg
                         )
 
+                    if (j+1 == int(val_steps)):
+                        stop_flag = True
+                        break
+
             # epoch end time
             epoch_end = timer()
 
             # remove and merge the progbars into one
             show_progbar_merged(
-                (final_i + 1),
+                (final_j + 1),
                 train_n,
                 train_loss.result(),
                 val_loss.result(),
@@ -666,7 +687,7 @@ if __name__ == '__main__':
 
 
 
-            with open(str(TRAIN_CURVE_FILENAME).format(cur_fold), 'a') as f:
+            with open(history_path + 'history_' + name + '.txt', 'a') as f:
                 f.write("{},{:.4f},{:.4f},{:.4f},{:.4f}\n".format(
                     cur_epoch + 1,
                     train_loss.result(),
@@ -694,7 +715,7 @@ if __name__ == '__main__':
 
             #if val_loss.result() > best_val_loss and\
             #        np.abs(val_loss.result() - best_val_loss) > epsilon:
-            if val_accuracy.result() < best_val_accuracy and\
+            if val_accuracy.result() < best_val_acc and\
                     nb.abs(val_accuracy.result() - best_val_acc) > epsilon:
                 convergence_epoch_counter += 1
             else:
@@ -706,7 +727,7 @@ if __name__ == '__main__':
                 best_val_loss = val_loss.result()
                 best_val_acc = val_accuracy.result()
                 model.save_weights(
-                    str(WEIGHT_DIR / "best_weights_fold_{}.h5".format(cur_fold))
+                    save_model_path + 'model_' + name + '.h5'
                 )
 
     else:

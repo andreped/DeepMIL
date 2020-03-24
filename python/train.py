@@ -49,13 +49,17 @@ if __name__ == '__main__':
     config.read(sys.argv[1])
 
     # whether to use GPU or not
-    GPU = config["GPU"]["useGPU"]
+    #GPU = config["GPU"]["useGPU"]
+    GPU = "1"
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 
     # dynamically grow the memory used on the GPU (FOR TF==2.*)
+    #'''
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
     for device in gpu_devices:
         tf.config.experimental.set_memory_growth(device, True)
+        #tf.config.experimental.set_per_process_memory_fraction(0.75)
+    #'''
 
     if GPU == "-1":
         print("No GPU is being used...")
@@ -78,6 +82,7 @@ if __name__ == '__main__':
     history_path = config["Paths"]["history_path"]  # '/home/andrep/workspace/DeepMIL/output/history/'
     datasets_path = config["Paths"]["datasets_path"]  # '/home/andrep/workspace/DeepMIL/output/datasets/'
     configs_path = config["Paths"]["configs_path"]  # '/home/andrep/workspace/DeepMIL/output/configs/'
+    dataset_chosen = config["Paths"]["dataset_chosen"]  # "binary_healthy_sick"
 
     # Preprocessing
     input_shape = eval(config["Preprocessing"]["input_shape"])  # (1, 256, 256)
@@ -118,14 +123,14 @@ if __name__ == '__main__':
     #metric = config["Training"]["metric"]  # <- This should be set automatically given which model is chosen
 
     # path to training data
-    data_name = datagen_date + "_binary_healthy_sick" + \
+    data_name = datagen_date + "_" + dataset_chosen + \
                 "_shape_" + str(input_shape).replace(" ", "") + \
                 "_huclip_" + str(hu_clip).replace(" ", "") + \
                 "_spacing_" + str(new_spacing).replace(" ", "")
     data_path += data_name + "/"  # NOTE: Updates data_path here to the preprocessed data (!)
 
     # name of output (to save everything as
-    name = curr_date + "_" + curr_time + "_" + "binary_healthy_sick"
+    name = curr_date + "_" + curr_time + "_" + dataset_chosen  # "binary_healthy_sick"
 
     # save current configuration file with all corresponding data
     config_out_path = configs_path + "config_" + name + ".ini"
@@ -143,7 +148,7 @@ if __name__ == '__main__':
         tmps[i] = tmp
 
     # 80, 20 split => merge test and validation set
-    val = (val1 * np.array([len(x) for x in tmps])).astype(int)
+    #val = (val1 * np.array([len(x) for x in tmps])).astype(int)
     train_dir = [[], []]
     val_dir = [[], []]
     test_dir = [[], []]
@@ -229,7 +234,6 @@ if __name__ == '__main__':
         )
 
     elif model_type == "2DMIL":
-        print(input_shape[1:])
         network = DeepMIL2D(input_shape=input_shape[1:] + (1,), nb_classes=nb_classes)  # (1,), nb_classes=2)
         network.set_convolutions(convs)
         network.set_dense_size(dense_val)
