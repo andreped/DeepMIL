@@ -73,11 +73,13 @@ def show_progbar_merged(cur_step, num_instances, loss, val_loss, acc, val_acc, c
     TEMPLATE = "\r{}{}/{} [{:{}<{}}] - {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.4f} - val_loss: {:>3.4f} - val_acc: {:>3.4f}\033[0;0m"
     progbar_length = 20
 
+    nb_batches = int(num_instances // batch_size)
+
     sys.stdout.write(TEMPLATE.format(
         color_code,
         cur_step,  # int(cur_step // batch_size),
-        int(np.ceil(num_instances / batch_size)),
-        "=" * min(int(progbar_length*(cur_step/num_instances)), progbar_length),
+        nb_batches,
+        "=" * min(int(progbar_length*(cur_step/nb_batches)), progbar_length),
         "-",
         progbar_length,
         int(time_per_epoch // 60),
