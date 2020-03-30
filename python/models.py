@@ -2,7 +2,8 @@ from tensorflow.python.keras.layers import Input, Dense, Convolution2D, MaxPooli
     SpatialDropout2D, \
     ZeroPadding2D, Activation, AveragePooling2D, UpSampling2D, BatchNormalization, ConvLSTM2D, \
     TimeDistributed, Concatenate, Lambda, Reshape, UpSampling3D, Convolution3D, MaxPooling3D, \
-    SpatialDropout3D, multiply, GlobalAveragePooling2D, TimeDistributed, LSTM, Layer, GlobalMaxPooling2D,add
+    SpatialDropout3D, multiply, GlobalAveragePooling2D, TimeDistributed, LSTM, Layer, GlobalMaxPooling2D,\
+    add, GlobalAveragePooling3D
 from tensorflow.python.keras.regularizers import l2
 from tensorflow.python.keras.models import Model, Sequential
 import tensorflow as tf
@@ -236,6 +237,15 @@ class DeepMIL2D:
     def set_convolutions(self, convolutions):
         self.convolutions = convolutions
 
+    def set_stride(self, stride):
+        self.stride = stride
+
+    def set_bn(self, use_bn):
+        self.use_bn = use_bn
+
+    def set_weight_decay(self, decay):
+        self.weight_decay = decay
+
     def get_depth(self):
         init_size = min(self.input_shape[0], self.input_shape[1])
         size = init_size
@@ -286,8 +296,10 @@ class DeepMIL2D:
         for i, d in enumerate(range(self.nb_dense_layers)):
             x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
                 x)
-            # fc1 = BatchNormalization()(fc1)
-            x = Dropout(self.dense_dropout)(x)
+            if self.use_bn:
+                x = BatchNormalization()(x)
+            if self.dense_dropout != None:
+                x = Dropout(self.dense_dropout)(x)
 
         alpha = Mil_Attention(L_dim=self.L_dim, output_dim=1, kernel_regularizer=l2(self.weight_decay), name='alpha',
                               use_gated=self.useGated)(x)  # L_dim=128
@@ -309,74 +321,12 @@ class InceptionalMIL2D:
         self.convolutions = None
         self.use_bn = True
         self.spatial_dropout = None
-        self.dense_dropout = 0.5
+        self.dense_dropout = None
         self.dense_size = 64
         self.weight_decay = 0
         self.useGated = True
         self.L_dim = 32
         self.nb_dense_layers = 2
-
-    def set_dense_size(self, size):
-        self.dense_size = size
-
-    def set_dense_dropout(self, dropout):
-        self.dense_dropout = dropout
-
-    def create(self):
-        """
-        Create model and return it
-
-        :return: keras model
-        """
-
-        input_layer = Input(shape=self.input_shape)
-        x = input_layer
-
-        # use InceptionV3 encoder only as feature extractor -> freeze CNN weights
-        base_model = Sequential()
-        base_model.add(InceptionV3(include_top=False, weights='imagenet', input_shape=self.input_shape[1:], pooling=max))
-        for layer in base_model.layers:
-            layer.trainable = False
-        x = base_model(x)
-
-        ## define classifier model
-        x = Flatten(name="flatten")(x)
-
-        # fully-connected layers
-        for i, d in enumerate(range(self.nb_dense_layers)):
-            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
-                x)
-            # fc1 = BatchNormalization()(fc1)
-            x = Dropout(self.dense_dropout)(x)
-
-        alpha = Mil_Attention(L_dim=self.L_dim, output_dim=1, kernel_regularizer=l2(self.weight_decay), name='alpha',
-                              use_gated=self.useGated)(x)  # L_dim=128
-        x_mul = multiply([alpha, x])
-
-        out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
-        x = Model(inputs=[input_layer], outputs=[out])
-
-        return x
-
-
-
-class Benchline3DCNN:
-    def __init__(self, input_shape, nb_classes):
-        if len(input_shape) != 3:
-            raise ValueError('Input shape must have 3 dimensions')
-        if nb_classes != 2:
-            raise ValueError('Classes must be 2')
-        self.input_shape = input_shape
-        self.convolutions = None
-        self.use_bn = True
-        self.spatial_dropout = None
-        self.dense_dropout = 0.5
-        self.dense_size = 64
-        self.weight_decay = 0
-        self.useGated = True
-        self.L_dim = 32
-        self.nb_dense_layers = 2
-        self.final_dense = 1
 
     def set_dense_size(self, size):
         self.dense_size = size
@@ -389,6 +339,98 @@ class Benchline3DCNN:
 
     def set_convolutions(self, convolutions):
         self.convolutions = convolutions
+
+    def set_stride(self, stride):
+        self.stride = stride
+
+    def set_bn(self, use_bn):
+        self.use_bn = use_bn
+
+    def set_weight_decay(self, decay):
+        self.weight_decay = decay
+
+
+    def create(self):
+        """
+        Create model and return it
+
+        :return: keras model
+        """
+
+        input_layer = Input(shape=self.input_shape[1:])
+        x = input_layer
+
+        # use InceptionV3 encoder only as feature extractor -> freeze CNN weights
+        #base_model = Sequential()
+        #base_model.add(InceptionV3(include_top=False, weights='imagenet', input_shape=self.input_shape[1:], pooling=max))
+        base_model = InceptionV3(include_top=False, weights='imagenet', input_tensor=input_layer, pooling=max)
+        for layer in base_model.layers:
+            layer.trainable = False
+        #x = base_model(x)
+
+        x = base_model.output
+
+        x = GlobalAveragePooling2D()(x)
+
+        ## define classifier model
+        x = Flatten(name="flatten")(x)  # (x)
+
+        # fully-connected layers
+        for i, d in enumerate(range(self.nb_dense_layers)):
+            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
+                x)
+            # fc1 = BatchNormalization()(fc1)
+            # x = Dropout(self.dense_dropout)(x)
+
+        alpha = Mil_Attention(L_dim=self.L_dim, output_dim=1, kernel_regularizer=l2(self.weight_decay), name='alpha',
+                              use_gated=self.useGated)(x)  # L_dim=128
+        x_mul = multiply([alpha, x])
+
+        out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
+        #x = Model(inputs=[input_layer], outputs=[out])
+        #x = out
+        x = Model(inputs=base_model.input, outputs=out)
+
+        return x
+
+
+
+class VGGNet2D:
+    def __init__(self, input_shape, nb_classes):
+        self.input_shape = input_shape
+        self.nb_classes = nb_classes
+        self.convolutions = None
+        self.use_bn = True
+        self.spatial_dropout = None
+        self.dense_dropout = 0.5
+        self.dense_size = 64
+        self.weight_decay = 0
+        self.useGated = True
+        self.L_dim = 32
+        self.nb_dense_layers = 2
+        self.final_dense = 1
+        self.stride = 1
+
+    def set_dense_size(self, size):
+        self.dense_size = size
+
+    def set_dense_dropout(self, dropout):
+        self.dense_dropout = dropout
+
+    def set_spatial_dropout(self, dropout):
+        self.spatial_dropout = dropout
+
+    def set_convolutions(self, convolutions):
+        self.convolutions = convolutions
+
+    def set_stride(self, stride):
+        self.stride = stride
+
+    def set_bn(self, use_bn):
+        self.use_bn = use_bn
+
+    def set_weight_decay(self, decay):
+        self.weight_decay = decay
 
     def set_final_dense(self, final_dense):
         self.final_dense = final_dense
@@ -444,12 +486,11 @@ class Benchline3DCNN:
             x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
                 x)
             # fc1 = BatchNormalization()(fc1)
-            x = Dropout(self.dense_dropout)(x)
+            if self.use_bn:
+                x = BatchNormalization()(x)
+            #x = Dropout(self.dense_dropout)(x)
 
-        if self.final_dense == 1:
-            x = Dense(self.final_dense, activation="sigmoid")(x)
-        else:
-            x = Dense(self.final_dense, activation="softmax")(x)
+        x = Dense(self.nb_classes)(x)
 
         x = Model(inputs=input_layer, outputs=x)
 
@@ -613,8 +654,9 @@ class CNN3D:
         if nb_classes != 2:
             raise ValueError('Classes must be 2')
         self.input_shape = input_shape
+        self.nb_classes = nb_classes
         self.convolutions = None
-        self.use_bn = True
+        self.use_bn = False
         self.spatial_dropout = None
         self.dense_dropout = 0
         self.dense_size = 64
@@ -638,6 +680,12 @@ class CNN3D:
 
     def set_stride(self, stride):
         self.stride = stride
+
+    def set_bn(self, use_bn):
+        self.use_bn = use_bn
+
+    def set_weight_decay(self, decay):
+        self.weight_decay = decay
 
     def get_depth(self):
         init_size = min(self.input_shape[0], self.input_shape[1])
@@ -675,12 +723,16 @@ class CNN3D:
         i = 0
         # while size > 4:
         for i in range(len(convolutions)):
-            x, _ = encoder_block_3d(x, convolutions[i], self.use_bn, self.spatial_dropout, stride=self.stride)
+            x, _ = encoder_block_3d(x, convolutions[i], self.use_bn, self.spatial_dropout,
+                                    weight_decay=self.weight_decay, stride=self.stride)
             size /= 2
             size = int(size)
             i += 1
 
-        # x = convolution_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout) # VGG-esque triple conv in last level
+        #x = convolution_block_3d(x, convolutions[i], self.use_bn, self.spatial_dropout)  # VGG-esque triple conv in last level
+
+        # global average max pool here
+        #x = GlobalAveragePooling3D()(x)
 
         ## define classifier model
         x = Flatten(name="flatten")(x)
@@ -689,10 +741,12 @@ class CNN3D:
         for i, d in enumerate(range(self.nb_dense_layers)):
             x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
                 x)
-            # fc1 = BatchNormalization()(fc1)
-            x = Dropout(self.dense_dropout)(x)
+            if self.use_bn:
+                x = BatchNormalization()(x)
+            if self.dense_dropout != None:
+                x = Dropout(self.dense_dropout)(x)
 
-        x = Dense(1, activation="sigmoid")(x)
+        x = Dense(self.nb_classes, activation="softmax")(x)
         x = Model(inputs=input_layer, outputs=x)
 
         return x
@@ -995,8 +1049,8 @@ def residual_block(prev_layer, repetitions, num_filters):
         x = Convolution2D(
                 filters=num_filters,
                 kernel_size=3,
-                kernel_regularizer=regularizers.l2(1e-2),
-                bias_regularizer=regularizers.l2(1e-2),
+                #kernel_regularizer=regularizers.l2(1e-2),
+                #bias_regularizer=regularizers.l2(1e-2),
                 strides=1,
                 padding='same'
         )(block)
@@ -1047,3 +1101,5 @@ def resnet(input_shape, num_classes, ds=2):  # num_classes, num_channels=1, ds=2
     model = Model(inputs=inputs, outputs=outputs)
 
     return model
+
+

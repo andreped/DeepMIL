@@ -18,6 +18,7 @@ from nibabel.processing import *
 from copy import deepcopy
 from lungmask import lungmask
 import shutil
+from data_aug import *
 
 
 def import_set(tmp, file):
@@ -103,16 +104,21 @@ if __name__ == "__main__":
 
     #dataset = '040320_binary_healthy_sick_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
     #dataset = '040320_binary_healthy_sick_shape_(1,128,128)_huclip_[-1024,1024]_spacing_[1.0,1.0,2.0]'
-    dataset = "230320_binary_healthy_emphysema_shape_(1,128,128)_huclip_[-1024,1024]_spacing_[1,1,3]"
+    #dataset = "250320_binary_healthy_emphysema_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
+    #dataset = "270320_binary_healthy_emphysema_shape_(64,256,256)_huclip_[-1050,-750]_spacing_[1,1,1]_3DCNN"
+    #dataset = "290320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
+    dataset = "290320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/" + dataset + "/"
 
     features_flag = False  # Default: False
 
     sets = ["negative", "positive"] #["Healthy", "Sick"]
 
+    aug = {}  # {'flip':1, 'rotate':10, 'shift':10}
+
     locs = os.listdir(data_path)[::-1]
     #locs = locs[3104:]
-    #np.random.shuffle(locs)
+    np.random.shuffle(locs)
 
     for filename in tqdm(locs, "CT:"):
 
@@ -135,13 +141,12 @@ if __name__ == "__main__":
         f.close()
 
         #'''
-        
+
         image = filename
         curr_label = int(filename.split("_")[0])
 
         #data.append(input_im)
         #lungmask.append(lungmask_im)
-
 
         if features_flag:
             features = np.array(features)
@@ -151,6 +156,26 @@ if __name__ == "__main__":
 
         masked = data_orig.copy()
         masked[gt == 0] = 0
+
+        # apply specified agumentation on both image stack and ground truth
+        if 'gauss' in aug:
+            masked = add_gaussBlur2(masked.copy(), aug["sigma"])
+
+        if 'rotate' in aug:  # -> do this last maybe?
+            masked = add_rotation3(masked.copy(), aug['rotate'])
+
+        if 'affine' in aug:
+            masked = add_affine_transform2(masked.copy(), aug['affine'])
+
+        if 'shift' in aug:
+            masked = add_shift3(masked.copy(), aug['shift'])
+
+        if 'flip' in aug:
+            masked = add_flip3(masked.copy())
+
+        if 'zoom' in aug:
+            masked = add_scaling2(masked.copy(), aug['zoom'])
+
 
         # generate boundary image
         gt_b = np.zeros_like(gt)
@@ -190,5 +215,5 @@ if __name__ == "__main__":
         slider2.set_val(slider2.val)
 
         plt.show()
-        
+
         #'''
