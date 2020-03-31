@@ -116,6 +116,7 @@ if __name__ == "__main__":
     sets = ["negative", "positive"] #["Healthy", "Sick"]
 
     aug = {}  # {'flip':1, 'rotate':10, 'shift':10}
+    aug = {'flip':1, 'rotate':10, 'gamma':[0.5, 1.5]}
 
     locs = os.listdir(data_path)[::-1]
     #locs = locs[3104:]
@@ -176,6 +177,9 @@ if __name__ == "__main__":
 
         if 'zoom' in aug:
             masked = add_scaling2(masked.copy(), aug['zoom'])
+
+        if 'gamma' in aug:
+            masked = add_gamma2(masked.copy(), aug["gamma"])
 
 
         # generate boundary image

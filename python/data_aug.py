@@ -155,17 +155,30 @@ performs intensity transform on the chunk, using gamma transform with random gam
 """
 
 
-def add_gamma2(input_im, r_max):
-    # randomly choose direction of transform
-    val = np.float32(random_integers(0, 1))
-    val = 2 * val - 1
+def add_gamma2(input_im, r_limits):
+    # randomly choose whether to augment or not
+    if random_integers(0, 1) == 1:
+        # randomly choose direction of transform
+        # val = np.float32(random_integers(0, 1))
+        # val = 2 * val - 1
 
-    # randomly choose gamma factor
-    r_max = 3
-    r = round(uniform(1, r_max))
+        # randomly choose gamma factor
+        # r = np.round(uniform(1, r_max))
+        r = np.random.uniform(*r_limits, 1)[0]
 
-    input_im = input_im ** (r ** val)
-    input_im = input_im - np.amin(input_im)
-    input_im = input_im / np.amax(input_im)
+        input_im = input_im ** r
+        input_im = input_im - np.amin(input_im)
+        input_im = input_im / np.amax(input_im)
 
     return input_im
+
+
+"""
+gaussian blur aug
+"""
+
+
+def add_gaussBlur2(input_im):
+    return input_im
+
+
