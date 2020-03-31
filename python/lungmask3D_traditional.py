@@ -1,5 +1,3 @@
-
-
 import numpy as np
 from skimage.morphology import disk, binary_erosion, binary_closing, remove_small_holes, remove_small_objects
 from scipy.ndimage import binary_fill_holes
@@ -27,14 +25,14 @@ def maxminscale(tmp):
 # img : 2D numpy array
 # --- OUTPUT ---
 # lungmask : binary numpy array where 1 correspond to lung, 0 else
-def lungmask_pro(img, morph = True):
+def lungmask_pro(img, morph=True):
 
     # to avoid many tears
     img = img.copy()
 
     # set intensity range to standard (corners have problems) -> doesn't really matter, robust method, but looks better
     img[img <= -1024] = -1024
-    img[img >= 1024] = 1024 # also this, because of circular region artifacts (actually also for the one above)
+    img[img >= 1024] = 1024  # also this, because of circular region artifacts (actually also for the one above)
 
     # scale image to be in the range [0,255] -> because method robust enough to handle it -> smarter thresholds
     img = np.uint8(maxminscale(img))

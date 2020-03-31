@@ -10,6 +10,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.widgets import Slider
 import tensorflow.keras.backend as K
+import tensorflow as tf
+from gradcam import *
+from scipy.ndimage import zoom
+from tensorflow.keras.applications import imagenet_utils
 
 
 def getClassDistribution(tmp):
@@ -21,6 +25,7 @@ def getClassDistribution(tmp):
 def images(event):
     ax[0].clear()
     ax[0].imshow(data_orig[int(slider2.val)], cmap='gray', vmin=0, vmax=1)
+    ax[0].imshow(heatmap[int(slider2.val)], vmin=0, vmax=1, alpha=float(slider0.val))
     #ax[0].imshow(gt[int(slider2.val)], cmap=cmap, alpha=float(slider1.val))
     #ax[0].imshow(gt_b[int(slider2.val)], cmap=cmap2)
     ax[0].set_title('CT + lungmask')
@@ -87,7 +92,7 @@ def import_set(sets, name, datasets_path, num=None):
 
 if __name__ == '__main__':
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # "-1"
 
     data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/"
     datasets_path = "/home/andrep/workspace/DeepMIL/output/datasets/"
@@ -99,9 +104,16 @@ if __name__ == '__main__':
     #curr_dataset = "250320_binary_healthy_emphysema_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
     #curr_dataset = "270320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
 
-    curr_dataset = "280320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
+    curr_dataset = "290320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     #name = "290320_012340_binary_healthy_cancer"
-    name = "300320_020457_binary_healthy_cancer"
+    #name = "300320_020457_binary_healthy_cancer"
+
+    curr_dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
+    name = "310320_025826_binary_healthy_cancer"
+    name = "310320_064512_binary_healthy_cancer"
+
+    # whether to make figure or not
+    draw_flag = True
 
     # read and parse config file
     config = configparser.ConfigParser()
@@ -132,7 +144,9 @@ if __name__ == '__main__':
     bag_size = int(config["Architecture"]["bag_size"])
     # bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
     use_bn = eval(config["Architecture"]["use_bn"])
+    mask_flag = config["Design"]["mask_flag"]
 
+    print()
     print(model_type)
 
     if model_type == "VGGNet2D":
@@ -159,18 +173,21 @@ if __name__ == '__main__':
         network.set_bn(use_bn)
         network.set_weight_decay(weight_decay)
         model = network.create()
+    elif model_type == "3DCNN":
+        model = load_model(save_model_path + "model_" + name + ".h5")
     else:
         raise Exception("You fucked up...")
 
     print(model.summary())
 
     # load weights
-    model.load_weights(save_model_path + "model_" + name + ".h5")
+    if not model_type == "3DCNN":
+        model.load_weights(save_model_path + "model_" + name + ".h5")
 
     #model = load_model(save_model_path + "model_" + name + ".h5")
 
-    #all_sets = ["train", "val", "test"]
-    all_sets = ["val", "test"]
+    all_sets = ["train", "val", "test"]
+    #all_sets = ["val", "test"]
 
     for sets in all_sets:
         #sets = "test"
@@ -200,84 +217,113 @@ if __name__ == '__main__':
                 lungmask = np.array(f["lungmask"])
                 gt = np.array(f["output"])[0]
 
-            # fix orientation
-            data = np.flip(data, axis=2)
-            data = np.flip(data, axis=1)
-
-            curr_label = str(gt)
-
-            #'''
-            print(data.shape)
-
-            data_orig = np.array(data)
-
-            masked = data_orig.copy()
-            masked[lungmask == 0] = 0
-            #'''
+            if draw_flag:
+                data_orig = data.copy()
+                masked = data.copy()
 
             # mask data using lungmask
-            #data[lungmask == 0] = 0
+            if mask_flag:
+                data[lungmask == 0] = 0
+                masked = data.copy()
+                curr_label = gt
 
             if model_type == "3DCNN":
-                softmax = np.squeeze(model.predict(np.expand_dims(np.expand_dims(data, axis=0), axis=-1)))
+                data_model_input = np.expand_dims(np.expand_dims(data, axis=0), axis=-1)
+                softmax = np.squeeze(model.predict(data_model_input))
+                pred = softmax
             elif model_type == "2DMIL":
-                softmax = np.squeeze(model.predict([(np.expand_dims(data, axis=-1))]))
+                data_model_input = [(np.expand_dims(data, axis=-1))]
+                softmax = np.squeeze(model.predict(data_model_input))
+                pred = np.mean(softmax)
             #pred = np.argmax(softmax)
-            pred = np.mean(softmax)
+            print(softmax)
 
             #print(softmax)
-            #print(gt, pred)
+            print(gt, pred)
             #print(gt, np.round(pred))
 
             pred = int(np.round(pred))
+            print(gt, pred)
+            print()
 
 
             #'''
-            # get alpha layer input to output function
-            ak = K.function([model.layers[0].input], [model.layers[-3].output])
 
-            # feed the sample in the function and get the result
-            ak_output = ak([(np.expand_dims(data, axis=-1))])
-            ak_output = np.array(ak_output[0])
+            if draw_flag:
 
-            # rescale the weight as described in the paper
-            minimum = ak_output.min()
-            maximum = ak_output.max()
-            ak_output = (ak_output - minimum) / (maximum - minimum)
+                # only draw if cancerous CT
+                if gt == 0:
+                    continue
 
-            # rank on size
-            ranks = np.argsort(np.squeeze(ak_output))
+                if model_type == "2DMIL":
+                    # get alpha layer input to output function
+                    ak = K.function([model.layers[0].input], [model.layers[-3].output])
 
-            colors = [(0, 0, 1, i) for i in np.linspace(0, 1, 3)]
-            cmap = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
-            colors = [(1, 0, 0, i) for i in np.linspace(0, 1, 3)]
-            cmap2 = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
-            colors = [(0, 1, 0, i) for i in np.linspace(0, 1, 3)]
-            cmap3 = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
+                    # feed the sample in the function and get the result
+                    ak_output = ak([(np.expand_dims(data, axis=-1))])
+                    ak_output = np.array(ak_output[0])
 
-            f, ax = plt.subplots(1, 3, figsize=(24, 12))
-            f.canvas.mpl_connect('key_press_event', up_scroll_alt)
-            f.canvas.mpl_connect('key_press_event', down_scroll_alt)
-            f.canvas.mpl_connect('scroll_event', up_scroll)
-            f.canvas.mpl_connect('scroll_event', down_scroll)
+                    # rescale the weight as described in the paper
+                    minimum = ak_output.min()
+                    maximum = ak_output.max()
+                    ak_output = (ak_output - minimum) / (maximum - minimum)
 
-            s1ax = plt.axes([0.25, 0.08, 0.5, 0.03])
-            slider1 = Slider(s1ax, 'alpha', 0, 1.0, dragging=True, valstep=0.05)
+                    # rank on size
+                    ranks = np.argsort(np.squeeze(ak_output))
+                else:
+                    ranks = list(range(data.shape[0]))
 
-            s2ax = plt.axes([0.25, 0.02, 0.5, 0.03])
-            slider2 = Slider(s2ax, 'slice', 0, data_orig.shape[0] - 1, valstep=1, valfmt='%1d')
+                ## TODO: Test out DeepExplain for XAI stuff -> No. Use Grad-CAM instead
+                # initialize our gradient class activation map and build the heatmap
+                cam = GradCAM(model, pred)
+                heatmap = cam.compute_heatmap(data_model_input)
 
-            # init
-            slider1.set_val(0.3)
-            slider2.set_val(0)
-            f.subplots_adjust(bottom=0.15)
+                # resize the resulting heatmap to the original input image dimensions
+                data_shapes = data.shape
+                curr_shapes = heatmap.shape
+                heatmap = zoom(heatmap, [data_shapes[0] / curr_shapes[0],
+                                         data_shapes[1] / curr_shapes[1],
+                                         data_shapes[2] / curr_shapes[2]], order=1)
 
-            slider1.on_changed(images)
-            slider2.on_changed(images)
-            slider2.set_val(slider2.val)
+                # and then overlay heatmap on top of the image
+                # heatmap = cv2.resize(heatmap, (orig.shape[1], orig.shape[0]))
+                # (heatmap, output) = cam.overlay_heatmap(heatmap, orig, alpha=0.5)
 
-            plt.show()
-            #'''
+                colors = [(0, 0, 1, i) for i in np.linspace(0, 1, 3)]
+                cmap = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
+                colors = [(1, 0, 0, i) for i in np.linspace(0, 1, 3)]
+                cmap2 = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
+                colors = [(0, 1, 0, i) for i in np.linspace(0, 1, 3)]
+                cmap3 = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)
+
+                f, ax = plt.subplots(1, 3, figsize=(24, 12))
+                f.canvas.mpl_connect('key_press_event', up_scroll_alt)
+                f.canvas.mpl_connect('key_press_event', down_scroll_alt)
+                f.canvas.mpl_connect('scroll_event', up_scroll)
+                f.canvas.mpl_connect('scroll_event', down_scroll)
+
+                s0ax = plt.axes([0.25, 0.14, 0.5, 0.03])
+                slider0 = Slider(s0ax, 'XAI', 0, 1.0, dragging=True, valstep=0.05)
+
+                s1ax = plt.axes([0.25, 0.08, 0.5, 0.03])
+                slider1 = Slider(s1ax, 'alpha', 0, 1.0, dragging=True, valstep=0.05)
+
+                s2ax = plt.axes([0.25, 0.02, 0.5, 0.03])
+                slider2 = Slider(s2ax, 'slice', 0, data_orig.shape[0] - 1, valstep=1, valfmt='%1d')
+
+                # init
+                slider0.set_val(0.5)
+                slider1.set_val(0.3)
+                slider2.set_val(0)
+                f.subplots_adjust(bottom=0.15)
+
+                slider0.on_changed(images)
+                slider1.on_changed(images)
+                slider2.on_changed(images)
+                slider2.set_val(slider2.val)
+
+                plt.show()
+                #'''
 
             gts.append(gt)
             preds.append(pred)

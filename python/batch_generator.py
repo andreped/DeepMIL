@@ -153,17 +153,19 @@ def add_scaling2(input_im, r_limits):
 performs intensity transform on the chunk, using gamma transform with random gamma-value
 """
 def add_gamma2(input_im, r_max):
-    # randomly choose direction of transform
-    val = np.float32(random_integers(0, 1))
-    val = 2 * val - 1
+    # randomly choose whether to augment or not
+    if np.random_integers(0, 1) == 1:
 
-    # randomly choose gamma factor
-    r_max = 3
-    r = round(uniform(1, r_max))
+        # randomly choose direction of transform
+        val = np.float32(random_integers(0, 1))
+        val = 2 * val - 1
 
-    input_im = input_im ** (r ** val)
-    input_im = input_im - np.amin(input_im)
-    input_im = input_im / np.amax(input_im)
+        # randomly choose gamma factor
+        r = round(uniform(1, r_max))
+
+        input_im = input_im ** (r ** val)
+        input_im = input_im - np.amin(input_im)
+        input_im = input_im / np.amax(input_im)
 
     return input_im
 
@@ -249,14 +251,14 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             else:
                 curr_bag = np.expand_dims(curr_bag, axis=-1)
 
-            if model_type == "3DCNN":
+            if model_type == "I am not one-hotting anymore":  # model_type == "3DCNN":
                 #curr_bag = np.expand_dims(curr_bag, axis=0)
                 mask = np.zeros(2, dtype=np.float32)
-                mask[int(curr_bag_label)] = 1
+                mask[int(curr_bag_label[0])] = 1
                 batch_bag_label.append(mask)
                 batch_bags.append(curr_bag)
-            if model_type == "2DMIL":
-                batch_bags.append((curr_bag))
+            elif model_type == "2DMIL":
+                batch_bags.append(curr_bag)  # (curr_bag))
                 batch_bag_label.append(curr_bag_label[0] * np.ones(len(curr_bag)))
             else:
                 batch_bags.append(curr_bag)  # ((curr_bag))

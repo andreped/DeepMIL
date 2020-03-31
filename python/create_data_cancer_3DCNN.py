@@ -49,13 +49,17 @@ def func(path):
 
     # read CT
     nib_volume = nib.load(curr_ct)
-    resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
+    res = nib_volume.header.get_zooms()  # get resolution metadata
+    resampled_volume = resample_to_output(nib_volume, res, order=1)
     data = resampled_volume.get_data().astype('float32')
+    # data = nib_volume.get_data().astype('float32')
 
     # resize to get (512, 512) output images
-    #from scipy.ndimage import zoom
-    #img_size = input_shape[1]
-    #data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+    from scipy.ndimage import zoom
+    img_size = input_shape[1]
+    # if not (img_size == data.shape[0] and img_size == data.shape[1]):
+    # data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+    data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], res[2] / new_spacing[2]], order=1)
 
     # pre-processing
     data[data < hu_clip[0]] = hu_clip[0]
@@ -72,12 +76,12 @@ def func(path):
     data = np.swapaxes(data, 0, -1)
 
     # sanity check. Appearantly there are some CTs that have wrong resolution metadata...
-    if data.shape[0] < 400:
+    if data.shape[0] < 300:
 
-        #'''
+        # '''
         # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
         gt_nib_volume = nib.load(data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
-        resampled_volume = resample_to_output(gt_nib_volume, new_spacing, order=0)
+        resampled_volume = resample_to_output(gt_nib_volume, res, order=0)
         gt = resampled_volume.get_data().astype('float32')
 
         # fix orientation
@@ -98,7 +102,7 @@ def func(path):
         del gt_shapes, data_shapes
         #'''
 
-        # mask CT and crop around lungmask
+        # (mask CT and) crop around lungmask
         #data[gt == 0] = 0
         tmp = (gt > 0).astype(int)
         rmin, rmax, cmin, cmax, zmin, zmax = bbox3D(tmp)
@@ -116,6 +120,7 @@ def func(path):
         gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
                        data_shapes[1] / gt_shapes[1],
                        data_shapes[2] / gt_shapes[2]], order=0)
+        #gt = (gt >= 0.5).astype(int)
         #'''
 
         # for each CT, make a folder and store each sample in its own respective file
@@ -178,6 +183,7 @@ if __name__ == '__main__':
     input_shape = eval(conf["input_shape"])  # (1, 256, 256)
     hu_clip = eval(conf["hu_clip"])  # [-1024, 1024]
     new_spacing = eval(conf["new_spacing"])  # [1., 1., 2.]
+    method = conf["method"]
     out_size = input_shape
 
     data_path = conf["data_path"]  # "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
@@ -187,7 +193,7 @@ if __name__ == '__main__':
                "_shape_" + str(out_size).replace(" ", "") +\
                "_huclip_" + str(hu_clip).replace(" ", "") +\
                "_spacing_" + str(new_spacing).replace(" ", "") +\
-               "_3DCNN" + "/"
+               "_" + method + "/"
 
     # parse
     sets = ["negative", "positive"]  # ["Healthy", "Sick"]

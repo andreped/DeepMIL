@@ -67,7 +67,7 @@ class Mil_Attention(Layer):
         n, d = x.shape
         ori_x = x
         # do Vhk^T
-        x = K.tanh(K.dot(x, self.V)) # (2,64)
+        x = K.tanh(K.dot(x, self.V))  # (2,64)
 
         if self.use_gated:
             gate_x = K.sigmoid(K.dot(ori_x, self.U))

@@ -200,6 +200,7 @@ useGated = eval(config["Architecture"]["use_gated"])  # False # Default: True
 bag_size = int(config["Architecture"]["bag_size"])
 # bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
 use_bn = eval(config["Architecture"]["use_bn"])
+cnn_dropout = eval(config["Architecture"]["cnn_dropout"])
 
 # Training configs
 epochs = int(config["Training"]["epochs"])  # 200
@@ -444,6 +445,8 @@ elif model_type == "2DCNN":
     network.L_dim = L_dim
     network.set_convolutions(convs)
     network.set_dense_dropout(dense_dropout)
+    network.set_spatial_dropout(spatial_dropout)
+    network.set_bn(use_bn)
     model = network.create()
 
     # optimization setup
@@ -517,23 +520,25 @@ elif model_type == "MLP":
 
 elif model_type == "3DCNN":
     print(input_shape)
+    print((*input_shape, 1))
 
-    network = CNN3D(input_shape=input_shape + (1,), nb_classes=2)
+    network = CNN3D(input_shape=(*input_shape, 1), nb_classes=2)
     network.nb_dense_layers = nb_dense_layers
     network.dense_size = dense_val
     network.L_dim = L_dim
     network.set_convolutions(convs)
     network.set_spatial_dropout(spatial_dropout)
     network.set_dense_dropout(dense_dropout)
-    network.set_stride = 1
+    network.set_stride(stride)
     network.set_bn(use_bn)
     network.set_weight_decay(weight_decay)
+    network.set_cnn_dropout(cnn_dropout)
     model = network.create()
 
     # optimization setup
     model.compile(
         optimizer=Adam(lr=lr),  # beta_1=0.9, beta_2=0.999),
-        loss='categorical_crossentropy',  # 'binary_crossentropy',
+        loss='binary_crossentropy',  # 'binary_crossentropy',
         metrics=['accuracy']  # ['accuracy']
     )
 

@@ -108,6 +108,7 @@ if __name__ == "__main__":
     #dataset = "270320_binary_healthy_emphysema_shape_(64,256,256)_huclip_[-1050,-750]_spacing_[1,1,1]_3DCNN"
     #dataset = "290320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
     dataset = "290320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
+    dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/" + dataset + "/"
 
     features_flag = False  # Default: False

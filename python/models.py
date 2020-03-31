@@ -24,7 +24,8 @@ def convolution_block_2d_fcn(x, nr_of_convolutions, use_bn=False, spatial_dropou
     return x
 
 
-def convolution_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
+def convolution_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0,
+                         stride=1, cnn_dropout=None):
     for i in range(2):
         x = Convolution2D(nr_of_convolutions, 3, padding='same', kernel_regularizer=l2(weight_decay),
                           strides=(stride, stride))(x)
@@ -33,6 +34,8 @@ def convolution_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=No
         x = Activation('relu')(x)
         if spatial_dropout:
             x = SpatialDropout2D(spatial_dropout)(x)
+    if cnn_dropout:
+        x = Dropout(cnn_dropout)(x)
     return x
 
 
@@ -48,7 +51,8 @@ def convolution_block_2d_time_dist(x, nr_of_convolutions, use_bn=False, spatial_
     return x
 
 
-def convolution_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
+def convolution_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0,
+                         stride=1, cnn_dropout=None):
     for i in range(2):
         x = Convolution3D(nr_of_convolutions, 3, padding='same', kernel_regularizer=l2(weight_decay),
                           strides=(stride, stride, stride))(x)
@@ -57,6 +61,8 @@ def convolution_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=No
         x = Activation('relu')(x)
         if spatial_dropout:
             x = SpatialDropout3D(spatial_dropout)(x)
+    if cnn_dropout:
+        x = Dropout(cnn_dropout)(x)
     return x
 
 
@@ -67,9 +73,11 @@ def encoder_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, 
     return x, x_before_downsampling
 
 
-def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
+def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1,
+                     cnn_dropout=None):
     x_before_downsampling = convolution_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout,
-                                                 weight_decay=weight_decay, stride=stride)
+                                                 weight_decay=weight_decay, stride=stride,
+                                                 cnn_dropout=cnn_dropout)
     downsample = [2, 2, 2]
     for i in range(1, 4):
         if x.shape[i] <= 4:
@@ -80,11 +88,12 @@ def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, 
     return x, x_before_downsampling
 
 
-def encoder_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, dims=2, weight_decay=0, stride=1):
+def encoder_block(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, dims=2, weight_decay=0,
+                  stride=1, cnn_dropout=None):
     if dims == 2:
-        return encoder_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride)
+        return encoder_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride, cnn_dropout=cnn_dropout)
     elif dims == 3:
-        return encoder_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride)
+        return encoder_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout, weight_decay=weight_decay, stride=stride, cnn_dropout=cnn_dropout)
     else:
         raise ValueError
 
@@ -665,6 +674,7 @@ class CNN3D:
         self.L_dim = 32
         self.nb_dense_layers = 2
         self.stride = 1
+        self.cnn_dropout = None
 
     def set_dense_size(self, size):
         self.dense_size = size
@@ -686,6 +696,9 @@ class CNN3D:
 
     def set_weight_decay(self, decay):
         self.weight_decay = decay
+
+    def set_cnn_dropout(self, cnn_dropout):
+        self.cnn_dropout=cnn_dropout
 
     def get_depth(self):
         init_size = min(self.input_shape[0], self.input_shape[1])
@@ -724,7 +737,8 @@ class CNN3D:
         # while size > 4:
         for i in range(len(convolutions)):
             x, _ = encoder_block_3d(x, convolutions[i], self.use_bn, self.spatial_dropout,
-                                    weight_decay=self.weight_decay, stride=self.stride)
+                                    weight_decay=self.weight_decay, stride=self.stride,
+                                    cnn_dropout=self.cnn_dropout)
             size /= 2
             size = int(size)
             i += 1
@@ -739,14 +753,15 @@ class CNN3D:
 
         # fully-connected layers
         for i, d in enumerate(range(self.nb_dense_layers)):
-            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
-                x)
+            x = Dense(self.dense_size, kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(x)
             if self.use_bn:
                 x = BatchNormalization()(x)
             if self.dense_dropout != None:
                 x = Dropout(self.dense_dropout)(x)
+            x = Activation('relu')(x)
 
-        x = Dense(self.nb_classes, activation="softmax")(x)
+        x = Dense(1, activation="sigmoid")(x)
+        #x = Dense(self.nb_classes, activation="softmax")(x)
         x = Model(inputs=input_layer, outputs=x)
 
         return x
