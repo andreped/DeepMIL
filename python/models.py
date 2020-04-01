@@ -66,9 +66,11 @@ def convolution_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=No
     return x
 
 
-def encoder_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1):
+def encoder_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1,
+                     cnn_dropout=None):
     x_before_downsampling = convolution_block_2d(x, nr_of_convolutions, use_bn, spatial_dropout,
-                                                 weight_decay=weight_decay, stride=stride)
+                                                 weight_decay=weight_decay, stride=stride,
+                                                 cnn_dropout=cnn_dropout)
     x = MaxPooling2D((2, 2))(x_before_downsampling)
     return x, x_before_downsampling
 
@@ -480,7 +482,7 @@ class VGGNet2D:
         i = 0
         # while size > 4:
         for i in range(len(convolutions)):
-            x, _ = encoder_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout)
+            x, _ = encoder_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout,)
             size /= 2
             size = int(size)
             i += 1
