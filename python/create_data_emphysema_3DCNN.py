@@ -164,9 +164,10 @@ def func(path):
 
 if __name__ == '__main__':
 
-    # today's date
-    dates = date.today()
-    dates = dates.strftime("%d%m") + dates.strftime("%Y")[:2]
+    # today's date and time
+    tmp = datetime.today()
+    dates = tmp.strftime("%d%m") + tmp.strftime("%Y")[:2]
+    time = tmp.strftime("%H%M%S")
 
     # read and parse config file
     config = configparser.ConfigParser()
@@ -176,14 +177,14 @@ if __name__ == '__main__':
     # specific for 3DCNN architecture
     # mask_flag = True #True or False
     input_shape = (1, 512, 512)
-    hu_clip = [-1050, -750]
+    hu_clip = [-1024, 1024]
     new_spacing = [1, 1, 1]
     out_size = (64, 256, 256)
 
     data_path = conf["data_path"]  # "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
     datasets_path = conf["datasets_path"]  # "/home/andrep/workspace/DeepMIL/data/"
     del config
-    end_path = datasets_path + dates + "_binary_healthy_emphysema" +\
+    end_path = datasets_path + dates + "_" + time + "_binary_healthy_emphysema" +\
                "_shape_" + str(out_size).replace(" ", "") +\
                "_huclip_" + str(hu_clip).replace(" ", "") +\
                "_spacing_" + str(new_spacing).replace(" ", "") +\
