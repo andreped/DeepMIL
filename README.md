@@ -1,6 +1,7 @@
 # DeepMIL
-
 This is the repo where we will insert the code that we will be using for this project.
+
+![picture](figures/XAI_example_nodule.png)
 
 ### Setup virtual environment
 It is recommended to work in a virtual enviroment, make one by:
