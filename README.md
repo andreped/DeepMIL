@@ -1,5 +1,5 @@
-# DeepMIL
-This is the repo where we will insert the code that we will be using for this project.
+# Clinical-grade Classification of Lung Cancer Patients using Deep Multiple Instance Learning
+This is the repo where we will insert the code that we will be using for this paper.
 
 ![picture](figures/XAI_example_nodule.png)
 
@@ -28,11 +28,10 @@ pip3 freeze > requirements.txt
 ```
 
 ### LUNGMASK
-In order to run simple_ct_viewer.py as well as lungmask_predict.py one need to install the lungmask package.
+In order to run simple_ct_viewer.py as well as lungmask_predict.py one need to install the lungmask package. But note that if you have installed modules through requirements, it should already be available. However, install it by:
 ```
 pip install git+https://github.com/JoHof/lungmask
 ```
-
 Note that lungmask_predict.py shouldnt be necessary to run, as these lungmasks should have been made available in the repo.
 
 ## Directions:
