@@ -3,11 +3,6 @@
 This is the repo where we will insert the code that we will be using for this project.
 
 ### Setup virtual environment
-To install the necessary modules, run
-```
-pip install -r requirements.txt
-```
-
 It is recommended to work in a virtual enviroment, make one by:
 ```
 virtualenv -ppython3 venv
@@ -21,7 +16,12 @@ or
 deactivate
 ```
 
-(OPTIONAL) If new modules are being added to the project, update requirements.txt by:
+To install the necessary modules, run
+```
+pip install -r requirements.txt
+```
+
+(OPTIONAL) If new modules are being added to the project, update requirements.txt by, and push:
 ```
 pip3 freeze > requirements.txt
 ```
