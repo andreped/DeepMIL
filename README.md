@@ -27,31 +27,44 @@ pip3 freeze > requirements.txt
 ```
 
 ### LUNGMASK
-In order to run simple_ct_viewer.py one need to install the lungmask package. The best way of doing this I found was doing:
+In order to run simple_ct_viewer.py as well as lungmask_predict.py one need to install the lungmask package.
 ```
-git clone https://github.com/JoHof/lungmask.git
-python lungmask/setup.py install
+pip install git+https://github.com/JoHof/lungmask
 ```
 
-If any errors do occur, try running with python3 instead
-
-Then you can remove the lungmask directory.
+Note that lungmask_predict.py shouldnt be necessary to run, as these lungmasks should have been made available in the repo.
 
 ## Directions:
 ### Directory Setup:
 1. Create data directories and subdirectories as below.
 ```
 +-- {DATA_DIR}/
-|   +-- positive/
-|   |   +-- my_positive_file_1.nii.gz
-|   |   +-- my_positive_file_2.nii.gz
+|   +-- Healthy/
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
 |   |   +-- [...]
-|   |   +-- my_positive_file_n.nii.gz
-|   +-- negative/
-|   |   +-- my_negative_file_1.nii.gz
-|   |   +-- my_negative_file_2.nii.gz
+|   |   +-- file_n1.nii.gz
+|   +-- Sick/
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
 |   |   +-- [...]
-|   |   +-- my_negative_file_m.nii.gz
+|   |   +-- file_n2.nii.gz
+|   +-- Healthy-Emphysema/
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
+|   |   +-- [...]
+|   |   +-- file_n3.nii.gz
+|   +-- Sick-Emphysema/
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
+|   |   +-- [...]
+|   |   +-- file_n4.nii.gz
+[...]
+|   +-- any_other_class_subdirectory/
+|   |   +-- file_1.nii.gz
+|   |   +-- file_2.nii.gz
+|   |   +-- [...]
+|   |   +-- file_m.nii.gz
 ``` 
 
 ### Generate Data:
@@ -107,19 +120,25 @@ The file.ini is the config file with all relevant parameters for training your m
 ### Generated dataset setup
 ```
 +--- {some created dataset}/
-|   +--- class_label_CT1/
-|   |    +--- slice_file_1.h5
-|   |    +--- slice_file_2.h5
-|   |    +--- [...]
-|   |    +--- slice_file_m1.h5
-|   +--- class_label_CT2/
-|   |    +--- slice_file_1.h5
-|   |    [...]
-|   |    +--- slice_file_m2.h5
-|   +--- [...]
-|   +--- class_label_CTN/
-|   +--- [...]
+|   +--- class_label_1/
+|   |    +--- CT1/
+|   |    |    +--- CT1.h5
+|   |    +--- CT2/
+|   |    |    +--- CT2.h5
+[...]
+|   |    +--- CTn/
+|   |    |    +--- CTn.h5
+|   +--- class_label_2/
+|   |    +--- CT1/
+|   |    |    +--- CT1.h5
+|   |    +--- CT2/
+|   |    |    +--- CT2.h5
+[...]
+|   |    +--- CTm/
+|   |    |    +--- CTm.h5
 ```
+
+Note that each CT-folder only contains *one* .h5-file that is the corresponding preprocessed CT-data in user-defined form. This folder isn't really necessary, but there is some legacy code that expects this structure of the data (to be changed in the future). Note that all .h5-files has been given the name "1.h5", such that path is: "/path_to_CT_folder/CT_name/1.h5".
 
 
 
