@@ -19,8 +19,8 @@ aug: 		dict with what augmentation as key and what degree of augmentation as val
 		->	'flip': 1, fast
 """
 
-def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1, data_path='',
-               mask_flag=True, bag_size=1, model_type=""):
+def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1,
+               data_path='', mask_flag=True, bag_size=1, model_type=""):
     
     input_shape = input_shape[1:]
 

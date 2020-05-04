@@ -105,12 +105,17 @@ if __name__ == '__main__':
     #curr_dataset = "270320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
 
     curr_dataset = "290320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
-    #name = "290320_012340_binary_healthy_cancer"
-    #name = "300320_020457_binary_healthy_cancer"
-
     curr_dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
-    name = "310320_025826_binary_healthy_cancer"
-    name = "310320_064512_binary_healthy_cancer"
+    curr_dataset = "020420_binary_healthy_cancer_shape_(128,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
+    #name = "290320_012340_binary_healthy_cancer"
+    name = "300320_020457_binary_healthy_cancer"
+    name = "310320_181353_binary_healthy_cancer"
+    name = "020420_144240_binary_healthy_cancer"
+    name = "040420_181214_binary_healthy_cancer"
+
+    #curr_dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
+    #name = "310320_025826_binary_healthy_cancer"
+    #name = "310320_064512_binary_healthy_cancer"
 
     # whether to make figure or not
     draw_flag = True
@@ -188,6 +193,7 @@ if __name__ == '__main__':
 
     all_sets = ["train", "val", "test"]
     #all_sets = ["val", "test"]
+    all_sets = ["test"]
 
     for sets in all_sets:
         #sets = "test"
@@ -263,6 +269,8 @@ if __name__ == '__main__':
                     ak_output = ak([(np.expand_dims(data, axis=-1))])
                     ak_output = np.array(ak_output[0])
 
+                    #print(ak_output)
+
                     # rescale the weight as described in the paper
                     minimum = ak_output.min()
                     maximum = ak_output.max()
@@ -270,24 +278,26 @@ if __name__ == '__main__':
 
                     # rank on size
                     ranks = np.argsort(np.squeeze(ak_output))
+                    #print(ranks)
                 else:
                     ranks = list(range(data.shape[0]))
 
-                ## TODO: Test out DeepExplain for XAI stuff -> No. Use Grad-CAM instead
-                # initialize our gradient class activation map and build the heatmap
-                cam = GradCAM(model, pred)
-                heatmap = cam.compute_heatmap(data_model_input)
+                if model_type == "3DCNN":
+                    ## TODO: Test out DeepExplain for XAI stuff -> No. Use Grad-CAM instead
+                    # initialize our gradient class activation map and build the heatmap
+                    cam = GradCAM(model, pred)
+                    heatmap = cam.compute_heatmap(data_model_input)
 
-                # resize the resulting heatmap to the original input image dimensions
-                data_shapes = data.shape
-                curr_shapes = heatmap.shape
-                heatmap = zoom(heatmap, [data_shapes[0] / curr_shapes[0],
-                                         data_shapes[1] / curr_shapes[1],
-                                         data_shapes[2] / curr_shapes[2]], order=1)
+                    # resize the resulting heatmap to the original input image dimensions
+                    data_shapes = data.shape
+                    curr_shapes = heatmap.shape
+                    heatmap = zoom(heatmap, [data_shapes[0] / curr_shapes[0],
+                                             data_shapes[1] / curr_shapes[1],
+                                             data_shapes[2] / curr_shapes[2]], order=1)
 
-                # and then overlay heatmap on top of the image
-                # heatmap = cv2.resize(heatmap, (orig.shape[1], orig.shape[0]))
-                # (heatmap, output) = cam.overlay_heatmap(heatmap, orig, alpha=0.5)
+                    # and then overlay heatmap on top of the image
+                    # heatmap = cv2.resize(heatmap, (orig.shape[1], orig.shape[0]))
+                    # (heatmap, output) = cam.overlay_heatmap(heatmap, orig, alpha=0.5)
 
                 colors = [(0, 0, 1, i) for i in np.linspace(0, 1, 3)]
                 cmap = mcolors.LinearSegmentedColormap.from_list('mycmap', colors, N=10)

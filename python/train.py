@@ -143,10 +143,23 @@ GPU = config["GPU"]["useGPU"]
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 
+# check TF version
+#v = tf.__version__.split(".")[:2]
+#if tf[0] == '2' and int(tf[1]) > 1:
+#    tf_version = "new"
+#else:
+#    tf_version = "old"
+
+
 # dynamically grow the memory used on the GPU (FOR TF==2.*)
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
+
+#import tensorflow as tf
+#configs = tf.ConfigProto()
+#configs.gpu_options.allow_growth = True
+#sess = tf.Session(config=configs)
 
 if GPU == "-1":
     print("No GPU is being used...")

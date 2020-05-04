@@ -317,6 +317,10 @@ class DeepMIL2D:
         x_mul = multiply([alpha, x])
 
         out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
+
+
+
+
         x = Model(inputs=[input_layer], outputs=[out])
 
         return x

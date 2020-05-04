@@ -57,12 +57,12 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 
     # dynamically grow the memory used on the GPU (FOR TF==2.*)
-    #'''
+    '''
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
     for device in gpu_devices:
         tf.config.experimental.set_memory_growth(device, True)
         #tf.config.experimental.set_per_process_memory_fraction(0.75)
-    #'''
+    '''
 
     if GPU == "-1":
         print("No GPU is being used...")

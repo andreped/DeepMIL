@@ -1,0 +1,252 @@
+import numpy as np
+import os
+import sys
+import h5py
+import nibabel as nib
+import matplotlib.pyplot as plt
+import SimpleITK as sitk
+from datetime import date
+from tqdm import tqdm
+import multiprocessing as mp
+from tensorflow.python.keras.applications.vgg16 import VGG16
+from nibabel.processing import resample_to_output
+import configparser
+import pandas as pd
+from scipy.ndimage import zoom
+
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+
+def minmaxscale(x):
+    if len(np.unique(x)) > 1:
+        x = (x - x.min()) / (x.max() - x.min())
+    return x
+
+def bbox3D(img):
+    z = np.any(img, axis=(1, 2))
+    c = np.any(img, axis=(0, 2))
+    r = np.any(img, axis=(0, 1))
+    rmin, rmax = np.where(r)[0][[0, -1]]
+    cmin, cmax = np.where(c)[0][[0, -1]]
+    zmin, zmax = np.where(z)[0][[0, -1]]
+
+    return rmin, rmax, cmin, cmax, zmin, zmax
+
+def func(path):
+
+    class_val, curr_ct = path
+    class_val = int(class_val)
+
+    #print(curr_ct)
+
+    curr_id = curr_ct.split("/")[-1].split(".")[0]
+    #print(curr_id)
+
+    #curr_ct = str(curr_ct)
+    #curr_path = all_data_path + curr_ct + ".nii.gz"
+
+    # read CT
+    nib_volume = nib.load(curr_ct)
+    resampled_volume = resample_to_output(nib_volume, new_spacing, order=1)
+    data = resampled_volume.get_data().astype('float32')
+
+    # resize to get (512, 512) output images
+    #from scipy.ndimage import zoom
+    #img_size = input_shape[1]
+    #data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+
+    # pre-processing
+    data[data < hu_clip[0]] = hu_clip[0]
+    data[data > hu_clip[1]] = hu_clip[1]
+
+    # intensity normalize [0, 1]
+    data = minmaxscale(data)
+
+    # fix orientation
+    data = np.flip(data, axis=1)  # np.rot90(data, k=1, axes=(0, 1))
+    data = np.flip(data, axis=0)
+
+    # get z axis first
+    data = np.swapaxes(data, 0, -1)
+
+    # sanity check. Appearantly there are some CTs that have wrong resolution metadata...
+    if data.shape[0] < 400:
+
+        #'''
+        # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
+        gt_nib_volume = nib.load(data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
+        resampled_volume = resample_to_output(gt_nib_volume, new_spacing, order=0)
+        gt = resampled_volume.get_data().astype('float32')
+
+        # fix orientation
+        gt = np.flip(gt, axis=1)
+        gt = np.flip(gt, axis=0)
+
+        # get z axis first
+        gt = np.swapaxes(gt, 0, -1)
+
+        gt[gt > 0] = 1
+        data_shapes = data.shape
+        gt_shapes = gt.shape
+        if not data_shapes == gt_shapes:
+            gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
+                           data_shapes[1] / gt_shapes[1],
+                           data_shapes[2] / gt_shapes[2]], order=0)
+        # data[gt == 0] = 0 # mask CT with lung mask # <- DONT MASK, one can easily do that if of interest in batchgen
+        del gt_shapes, data_shapes
+        #'''
+
+        # mask CT and crop around lungmask
+        #data[gt == 0] = 0
+        tmp = (gt > 0).astype(int)
+        rmin, rmax, cmin, cmax, zmin, zmax = bbox3D(tmp)
+        data = data[zmin:zmax, cmin:cmax, rmin:rmax]
+        gt = gt[zmin:zmax, cmin:cmax, rmin:rmax]
+
+        # resize to final desired output size
+        #'''
+        data_shapes = data.shape
+        data = zoom(data, [out_size[0] / data_shapes[0],
+                           out_size[1] / data_shapes[1],
+                           out_size[2] / data_shapes[2]], order=1)
+        data_shapes = data.shape
+        gt_shapes = gt.shape
+        gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
+                       data_shapes[1] / gt_shapes[1],
+                       data_shapes[2] / gt_shapes[2]], order=0)
+        #'''
+
+        # for each CT, make a folder and store each sample in its own respective file
+        curr_end_path = end_path + str(class_val) + "_" + curr_id + "/"
+        if not os.path.exists(curr_end_path):
+            os.makedirs(curr_end_path)
+
+        # save entire volume as array in single file instead of multiple to speed up batchgen
+        with h5py.File(curr_end_path + "1" + ".h5", "w") as ff:
+            ff.create_dataset("data", data=data.astype(np.float32), compression="gzip", compression_opts=4)
+            ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
+            ff.create_dataset("lungmask", data=gt.astype(np.float32), compression="gzip", compression_opts=4)
+        del ff  # paranoid del
+
+        '''
+        if input_shape[0] == 1:
+            for j in range(data.shape[0]):
+                if np.count_nonzero(data[j]) == 0:
+                    continue
+                with h5py.File(curr_end_path + str(j) + ".h5", "w") as ff:
+                    ff.create_dataset("data", data=data[j].astype(np.float32), compression="gzip", compression_opts=4)
+                    ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
+                    ff.create_dataset("lungmask", data=gt[j].astype(np.float32), compression="gzip", compression_opts=4)
+
+                del ff  # paranoid del
+        else:  # slab_size != 1:
+            num = input_shape[0]
+            for j in range(int(np.ceil(data.shape[0] / input_shape[0]))):
+                tmp = np.zeros(input_shape, dtype=np.float32)
+                slab_CT = data[int(num * j):int(num * (j + 1))]
+                tmp[:slab_CT.shape[0]] = slab_CT
+                if np.count_nonzero(tmp) == 0:
+                    continue
+                tmp2 = np.zeros(input_shape, dtype=np.float32)
+                slab_GT = gt[int(num * j):int(num * (j + 1))]
+                tmp2[:slab_GT.shape[0]] = slab_GT
+
+                with h5py.File(curr_end_path + str(j) + ".h5", "w") as ff:
+                    ff.create_dataset("data", data=tmp.astype(np.float32), compression="gzip", compression_opts=4)
+                    ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
+                    ff.create_dataset("lungmask", data=tmp2.astype(np.float32), compression="gzip", compression_opts=4)
+
+                del ff  # paranoid del
+        '''
+
+
+if __name__ == '__main__':
+
+    # today's date
+    dates = date.today()
+    dates = dates.strftime("%d%m") + dates.strftime("%Y")[:2]
+
+    # read and parse config file
+    config = configparser.ConfigParser()
+    config.read(sys.argv[1])
+    conf = config["Default"]
+
+    # specific for 3DCNN architecture
+    # mask_flag = True #True or False
+    input_shape = (1, 512, 512)
+    hu_clip = [-1050, -750]
+    new_spacing = [1, 1, 1]
+    out_size = (64, 256, 256)
+
+    data_path = conf["data_path"]  # "/mnt/EncryptedPathology/DeepMIL/healthy_sick/"
+    datasets_path = conf["datasets_path"]  # "/home/andrep/workspace/DeepMIL/data/"
+    del config
+    end_path = datasets_path + dates + "_binary_healthy_emphysema" +\
+               "_shape_" + str(out_size).replace(" ", "") +\
+               "_huclip_" + str(hu_clip).replace(" ", "") +\
+               "_spacing_" + str(new_spacing).replace(" ", "") +\
+               "_3DCNN" + "/"
+
+    # parse csv
+    csv = pd.read_csv(data_path + "volumes-info.csv")
+    pids = csv["PID"]
+    subfolders = csv["Sub-folder"]
+    groups = csv["Group"]
+    emphysema = csv["Emphysema"]
+    print(csv)
+
+    # parse folders and make list saving corresponding PIDS with paths
+    pids_paths = []
+    for curr_folder in os.listdir(data_path):
+        curr_folder = data_path + curr_folder
+        if os.path.isdir(curr_folder):
+            curr_folder += "/"
+            for curr_path in os.listdir(curr_folder):
+                curr_path = curr_folder + curr_path
+                curr_pid = int(curr_path.split("/")[-1].split(".")[0].split("_")[0])
+                pids_paths.append([curr_pid, curr_path])
+
+    #pids_paths = np.array(pids_paths)
+
+    sets = ["negative", "positive"]  # negative = healthy, positive = healthy + abnormality + (emphysema==yes)
+
+    pids_healthy = np.array(pids[groups == "Healthy"])  # & (emphysema == "No")])
+    pids_emphysema = np.array(pids[(groups == "Healthy with abnormalities") & (emphysema == "Yes")])
+
+    pids_classes = [pids_healthy, pids_emphysema]
+
+    pids_class = []
+    for i, curr_set in enumerate(pids_classes):
+        for pid in curr_set:
+            pids_class.append([str(i), str(pid)])
+    pids_class = np.array(pids_class)
+
+    print("Distribution of classes (healthy vs emphysema: ")
+    print(sum(pids_class[:, 0].astype(int) == 0))
+    print(sum(pids_class[:, 0].astype(int) == 1))
+    #exit()
+
+    locs = pids_class.copy()
+    locs = []
+    for pid, path in tqdm(pids_paths, "Matching GT with PID and path"):
+        tmp = np.array([int(p) == int(pid) for p in pids_class[:, 1]])
+        if sum(tmp) != 0:
+            locs.append([np.squeeze(pids_class[:, 0][tmp]), path])
+    locs = np.array(locs)
+    #print(locs)
+
+    #locs = locs[6900:]
+
+    #locs = locs[(len(locs) - 100):]
+
+    if not os.path.exists(end_path):
+        os.makedirs(end_path)
+
+    proc_num = int(conf["threads"])  # 16
+    p = mp.Pool(proc_num)
+    num_tasks = len(locs)
+    r = list(tqdm(p.imap(func, locs), "CT", total=num_tasks))  # list(tqdm(p.imap(func,gts),total=num_tasks))
+    p.close()
+    p.join()

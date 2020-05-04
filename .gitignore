@@ -1,7 +1,8 @@
 .idea/
 output/
 data/
-python/venv
+python/venv*
+python/cuda*
 python/__pycache__
 *.tfrecord
 *.pyc
