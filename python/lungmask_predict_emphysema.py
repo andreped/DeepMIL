@@ -4,7 +4,7 @@ from tqdm import tqdm
 import tensorflow as tf
 
 # whether to use GPU or not
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # "0"
 
 # dynamically grow the memory used on the GPU (FOR TF==2.*)
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -38,8 +38,13 @@ for loc, curr_end_path in tqdm(locs, "CT: "):
         continue
     #try:
     #sp.check_call(["lungmask", loc, curr_end_path, "--batchsize", "64"], stderr=sp.DEVNULL, stdout=sp.DEVNULL)
-    sp.check_call(["lungmask", loc, curr_end_path], stderr=sp.DEVNULL, stdout=sp.DEVNULL)
+    try:
+        sp.check_call(["lungmask", loc, curr_end_path], stderr=sp.DEVNULL, stdout=sp.DEVNULL)
+    except Exception:
+        print("something is wrong with the file: \n" + loc)
+        del Exception
     #sp.check_call(["lungmask", loc, curr_end_path, "--cpu"], stderr=sp.DEVNULL, stdout=sp.DEVNULL)
     #except Exception:
     #    print("something is wrong with the file: \n" + loc)
     #    del Exception
+

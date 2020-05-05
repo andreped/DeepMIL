@@ -20,7 +20,7 @@ if __name__ == '__main__':
 
     # whether to use GPU or not
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # "0"
 
     # dynamically grow the memory used on the GPU (FOR TF==2.*)
     gpu_devices = tf.config.experimental.list_physical_devices('GPU')
@@ -51,6 +51,8 @@ if __name__ == '__main__':
     for tmp in tqdm(locs):
         loc, curr_end_path = tmp
         sp.check_call(["lungmask", loc, curr_end_path], stderr=sp.DEVNULL, stdout=sp.DEVNULL)
+
+        K.clear_session()
     #'''
 
     #exit()

@@ -351,7 +351,7 @@ if model_type == "simple":
         period=1
     )
 
-elif model_type == "2DMIL":  # TODO: Rename to AMIL
+elif model_type == "2DAMIL":  # renames from 2DMIL -> 2DAMIL
     print(input_shape[1:])
     network = DeepMIL2D(input_shape=input_shape[1:] + (1,), nb_classes=nb_classes)  # (1,), nb_classes=2)
     network.set_convolutions(convs)
@@ -381,7 +381,7 @@ elif model_type == "2DMIL":  # TODO: Rename to AMIL
         mode='max',  # 'auto',
         period=1
     )
-elif model_type == "DeepMIL2D_hybrid":
+elif model_type == "2DMIL_hybrid":
     network = DeepMIL2D_hybrid(input_shape=(bag_size,) + input_shape[1:] + (1,), nb_classes=2)  # (1,), nb_classes=2)
     network.set_convolutions(convs)
     network.set_dense_dropout(dense_dropout)
@@ -405,7 +405,7 @@ elif model_type == "DeepMIL2D_hybrid":
         period=1
     )
 
-elif model_type == "DeepFCNMIL":
+elif model_type == "FCNMIL":
     model = DeepFCNMIL(input_shape=(bag_size,) + input_shape[1:], nb_classes=2)
 
     # optimization setup
@@ -426,7 +426,7 @@ elif model_type == "DeepFCNMIL":
         period=1
     )
 
-elif model_type == "InceptionalMIL2D":
+elif model_type == "Inceptional2DMIL":
     print(input_shape)
     network = InceptionalMIL2D(input_shape=input_shape + (3,), nb_classes=2)
     network.set_dense_size(dense_val)
@@ -566,7 +566,7 @@ elif model_type == "3DCNN":
         period=1
     )
 
-elif model_type == "hema2DMIL":
+elif model_type == "2DHMIL":
     model = resnet(input_shape=(*input_shape[1:], 1), num_classes=nb_classes, ds=2)  # TODO: NOTE THIS HAS BEEN CHANGED!!!
 
 elif model_type == "VGGNet2D":
@@ -603,7 +603,7 @@ else:
                                   nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                                   mask_flag=mask_flag, bag_size=bag_size)
 
-if model_type == "hema2DMIL" or model_type == "VGGNet2D":  # "hema" in model_type:
+if model_type == "2DHMIL" or model_type == "VGGNet2D":  # "hema" in model_type:
     # metrics
     train_accuracy = tf.keras.metrics.Accuracy(name='train_acc')
     train_loss = tf.keras.metrics.Mean(name='train_loss')

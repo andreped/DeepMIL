@@ -75,6 +75,7 @@ def encoder_block_2d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, 
     return x, x_before_downsampling
 
 
+
 def encoder_block_3d(x, nr_of_convolutions, use_bn=False, spatial_dropout=None, weight_decay=0, stride=1,
                      cnn_dropout=None):
     x_before_downsampling = convolution_block_3d(x, nr_of_convolutions, use_bn, spatial_dropout,
@@ -294,6 +295,113 @@ class DeepMIL2D:
         #while size > 4:
         for i in range(len(convolutions)):
             x, _ = encoder_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout)
+            size /= 2
+            size = int(size)
+            i += 1
+
+        # x = convolution_block_2d(x, convolutions[i], self.use_bn, self.spatial_dropout) # VGG-esque triple conv in last level
+
+        ## define classifier model
+        x = Flatten(name="flatten")(x)
+
+        # fully-connected layers
+        for i, d in enumerate(range(self.nb_dense_layers)):
+            x = Dense(self.dense_size, activation='relu', kernel_regularizer=l2(self.weight_decay), name="fc" + str(i))(
+                x)
+            if self.use_bn:
+                x = BatchNormalization()(x)
+            if self.dense_dropout != None:
+                x = Dropout(self.dense_dropout)(x)
+
+        alpha = Mil_Attention(L_dim=self.L_dim, output_dim=1, kernel_regularizer=l2(self.weight_decay), name='alpha',
+                              use_gated=self.useGated)(x)  # L_dim=128
+        x_mul = multiply([alpha, x])
+
+        out = Last_Sigmoid(output_dim=1, name='FC1_sigmoid')(x_mul)
+
+
+
+
+        x = Model(inputs=[input_layer], outputs=[out])
+
+        return x
+
+
+class DeepMIL3D:
+    def __init__(self, input_shape, nb_classes):
+        #if len(input_shape) != 3:
+        #    raise ValueError('Input shape must have 3 dimensions')
+        #if nb_classes != 2:
+        #    raise ValueError('Classes must be 2')
+        self.input_shape = input_shape
+        self.convolutions = None
+        self.use_bn = True
+        self.spatial_dropout = None
+        self.dense_dropout = 0.5
+        self.dense_size = 64
+        self.weight_decay = 0
+        self.useGated = True
+        self.L_dim = 32
+        self.nb_dense_layers = 2
+
+    def set_dense_size(self, size):
+        self.dense_size = size
+
+    def set_dense_dropout(self, dropout):
+        self.dense_dropout = dropout
+
+    def set_spatial_dropout(self, dropout):
+        self.spatial_dropout = dropout
+
+    def set_convolutions(self, convolutions):
+        self.convolutions = convolutions
+
+    def set_stride(self, stride):
+        self.stride = stride
+
+    def set_bn(self, use_bn):
+        self.use_bn = use_bn
+
+    def set_weight_decay(self, decay):
+        self.weight_decay = decay
+
+    def get_depth(self):
+        init_size = min(self.input_shape[0], self.input_shape[1])
+        size = init_size
+        depth = 0
+        while size > 4:
+            size /= 2
+            size = int(size)  # in case of odd number size before division
+            depth += 1
+        return depth + 1
+
+    def create(self):
+        """
+        Create model and return it
+
+        :return: keras model
+        """
+
+        input_layer = Input(shape=self.input_shape)
+        x = input_layer
+
+        init_size = min(self.input_shape[:-1])
+        size = init_size
+
+        convolutions = self.convolutions
+        if convolutions is None:  # if not defined, define simple encoder
+            # Create convolutions
+            convolutions = []
+            nr_of_convolutions = 8
+            for i in range(self.get_depth()):
+                convolutions.append(nr_of_convolutions)
+                nr_of_convolutions *= 2
+
+        ## make encoder
+        i = 0
+        #while size > 4:
+        for i in range(len(convolutions)):
+            x, _ = encoder_block_3d(x, convolutions[i], self.use_bn, self.spatial_dropout)
             size /= 2
             size = int(size)
             i += 1
