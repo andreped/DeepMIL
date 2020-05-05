@@ -151,6 +151,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = GPU  # "0"
 #    tf_version = "old"
 
 
+# TODO: CREATE DATA BY (from python/)
+# source venv/bin/activate
+# python ../NeuroDBUtils/main.py -c main_config.ini
+
+
 # dynamically grow the memory used on the GPU (FOR TF==2.*)
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:

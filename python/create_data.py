@@ -129,7 +129,7 @@ def func(path):
             os.makedirs(curr_end_path)
 
         # for #3DCNNs (as well as 2DMILs) save entire volume directly, and send that to the batch generator as input
-        if cnn3d_flag:
+        if CNN3D_flag or (MIL_type == 2):
             # save entire volume as array in single file instead of multiple to speed up batchgen
             with h5py.File(curr_end_path + "1" + ".h5", "w") as ff:
                 ff.create_dataset("data", data=data.astype(np.float32), compression="gzip", compression_opts=4)
@@ -137,7 +137,7 @@ def func(path):
                 ff.create_dataset("lungmask", data=gt.astype(np.uint8), compression="gzip", compression_opts=4)
 
         # for slab 3DCNNs and 3DMILs, store data as stack of slabs
-        if input_shape[0] > 1:
+        elif (input_shape[0] > 1) and (MIL_type == 3):
             num = input_shape[0]
             slabs_data = []
             slabs_lungmask = []
@@ -162,6 +162,9 @@ def func(path):
                 ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
                 ff.create_dataset("lungmask", data=slabs_lungmask.astype(np.uint8), compression="gzip", compression_opts=4)
 
+        else:
+            raise Exception("You defined something wrong in datagen_config.ini, please check that it is correct and compare it with the if statements in the code...\n")
+
 
 if __name__ == '__main__':
 
@@ -176,7 +179,8 @@ if __name__ == '__main__':
 
     # specific for 3DCNN architecture
     # mask_flag = True #True or False
-    cnn3d_flag = eval(conf["cnn3d_flag"])  # True
+    CNN3D_flag = eval(conf["CNN3D_flag"])  # True
+    MIL_type = int(conf["MIL_type"]) # 2 <- for 2DMIL, 3 <- for 3DMIL (slabwise attention classifier
     input_shape = eval(conf["input_shape"])  # (1, 256, 256)
     hu_clip = eval(conf["hu_clip"])  # [-1024, 1024]
     new_spacing = eval(conf["new_spacing"])  # [1., 1., 2.]
@@ -190,7 +194,8 @@ if __name__ == '__main__':
                "_shape_" + str(out_size).replace(" ", "") +\
                "_huclip_" + str(hu_clip).replace(" ", "") +\
                "_spacing_" + str(new_spacing).replace(" ", "") +\
-               "_3DCNN_" + str(cnn3d_flag) + "/"
+               "_3DCNN_" + str(CNN3D_flag) +\
+               "_" + str(MIL_type) + "DMIL" + "/"
 
     # new parse (give path to negative samples and positive samples
     set_paths = [data_path_neg, data_path_pos]
