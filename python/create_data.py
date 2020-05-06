@@ -44,126 +44,134 @@ def func(path):
     curr_id = curr_ct.split("/")[-1].split(".")[0]
     #print(curr_id)
 
-    #curr_ct = str(curr_ct)
-    #curr_path = all_data_path + curr_ct + ".nii.gz"
+    #print(path)
 
-    # read CT
-    nib_volume = nib.load(curr_ct)
-    res = nib_volume.header.get_zooms()  # get resolution metadata
-    resampled_volume = resample_to_output(nib_volume, res, order=1)
-    data = resampled_volume.get_data().astype('float32')
-    # data = nib_volume.get_data().astype('float32')
-
-    # resize to get (512, 512) output images
-    from scipy.ndimage import zoom
-    img_size = input_shape[1]
-    # if not (img_size == data.shape[0] and img_size == data.shape[1]):
-    # data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
-    data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], res[2] / new_spacing[2]], order=1)
-
-    # pre-processing
-    data[data < hu_clip[0]] = hu_clip[0]
-    data[data > hu_clip[1]] = hu_clip[1]
-
-    # intensity normalize [0, 1]
-    data = minmaxscale(data)
-
-    # fix orientation
-    data = np.flip(data, axis=1)  # np.rot90(data, k=1, axes=(0, 1))
-    data = np.flip(data, axis=0)
-
-    # get z axis first
-    data = np.swapaxes(data, 0, -1)
-
-    # sanity check. Appearantly there are some CTs that have wrong resolution metadata...
-    if data.shape[0] < 300:
-
-        # '''
-        # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
-        gt_nib_volume = nib.load(data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
-        resampled_volume = resample_to_output(gt_nib_volume, res, order=0)
-        gt = resampled_volume.get_data().astype('float32')
-
-        # fix orientation
-        gt = np.flip(gt, axis=1)
-        gt = np.flip(gt, axis=0)
-
-        # get z axis first
-        gt = np.swapaxes(gt, 0, -1)
-
-        gt[gt > 0] = 1
-        data_shapes = data.shape
-        gt_shapes = gt.shape
-        if not data_shapes == gt_shapes:
-            gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
-                           data_shapes[1] / gt_shapes[1],
-                           data_shapes[2] / gt_shapes[2]], order=0)
-        # data[gt == 0] = 0 # mask CT with lung mask # <- DONT MASK, one can easily do that if of interest in batchgen
-        del gt_shapes, data_shapes
-        #'''
-
-        # (mask CT and) crop around lungmask
-        #data[gt == 0] = 0
-        tmp = (gt > 0).astype(int)
-        rmin, rmax, cmin, cmax, zmin, zmax = bbox3D(tmp)
-        data = data[zmin:zmax, cmin:cmax, rmin:rmax]
-        gt = gt[zmin:zmax, cmin:cmax, rmin:rmax]
-
-        # resize to final desired output size
-        #'''
-        data_shapes = data.shape
-        data = zoom(data, [out_size[0] / data_shapes[0],
-                           out_size[1] / data_shapes[1],
-                           out_size[2] / data_shapes[2]], order=1)
-        data_shapes = data.shape
-        gt_shapes = gt.shape
-        gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
-                       data_shapes[1] / gt_shapes[1],
-                       data_shapes[2] / gt_shapes[2]], order=0)
-        #gt = (gt >= 0.5).astype(int)
-        #'''
-
+    # first check if file already exists, if yes, skip
+    curr_end_path = end_path + str(class_val) + "_" + curr_id + "/"
+    if os.path.exists(curr_end_path + "1.h5"):
+        1
+        #print("File already exists! ", curr_end_path + "1.h5")
+    else:
         # for each CT, make a folder and store each sample in its own respective file
-        curr_end_path = end_path + str(class_val) + "_" + curr_id + "/"
         if not os.path.exists(curr_end_path):
             os.makedirs(curr_end_path)
 
-        # for #3DCNNs (as well as 2DMILs) save entire volume directly, and send that to the batch generator as input
-        if CNN3D_flag or (MIL_type == 2):
-            # save entire volume as array in single file instead of multiple to speed up batchgen
-            with h5py.File(curr_end_path + "1" + ".h5", "w") as ff:
-                ff.create_dataset("data", data=data.astype(np.float32), compression="gzip", compression_opts=4)
-                ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
-                ff.create_dataset("lungmask", data=gt.astype(np.uint8), compression="gzip", compression_opts=4)
+        #curr_ct = str(curr_ct)
+        #curr_path = all_data_path + curr_ct + ".nii.gz"
 
-        # for slab 3DCNNs and 3DMILs, store data as stack of slabs
-        elif (input_shape[0] > 1) and (MIL_type == 3):
-            num = input_shape[0]
-            slabs_data = []
-            slabs_lungmask = []
-            for j in range(int(np.ceil(data.shape[0] / input_shape[0]))):
-                tmp = np.zeros(input_shape, dtype=np.float32)
-                slab_CT = data[int(num * j):int(num * (j + 1))]
-                tmp[:slab_CT.shape[0]] = slab_CT
-                if np.count_nonzero(tmp) == 0:
-                    continue
-                tmp2 = np.zeros(input_shape, dtype=np.float32)
-                slab_GT = gt[int(num * j):int(num * (j + 1))]
-                tmp2[:slab_GT.shape[0]] = slab_GT
+        # read CT
+        nib_volume = nib.load(curr_ct)
+        res = nib_volume.header.get_zooms()  # get resolution metadata
+        resampled_volume = resample_to_output(nib_volume, res, order=1)
+        data = resampled_volume.get_data().astype('float32')
+        # data = nib_volume.get_data().astype('float32')
 
-                slabs_data.append(tmp)
-                slabs_lungmask.append(tmp2)
+        # resize to get (512, 512) output images
+        from scipy.ndimage import zoom
+        img_size = input_shape[1]
+        # if not (img_size == data.shape[0] and img_size == data.shape[1]):
+        # data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], 1.0], order=1)
+        data = zoom(data, [img_size / data.shape[0], img_size / data.shape[1], res[2] / new_spacing[2]], order=1)
 
-            slabs_data = np.array(slabs_data)
-            slabs_lungmask = np.array(slabs_lungmask)
+        # pre-processing
+        data[data < hu_clip[0]] = hu_clip[0]
+        data[data > hu_clip[1]] = hu_clip[1]
 
-            with h5py.File(curr_end_path + str(j) + ".h5", "w") as ff:
-                ff.create_dataset("data", data=slabs_data.astype(np.float32), compression="gzip", compression_opts=4)
-                ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
-                ff.create_dataset("lungmask", data=slabs_lungmask.astype(np.uint8), compression="gzip", compression_opts=4)
+        # intensity normalize [0, 1]
+        data = minmaxscale(data)
 
-        else:
-            raise Exception("You defined something wrong in datagen_config.ini, please check that it is correct and compare it with the if statements in the code...\n")
+        # fix orientation
+        data = np.flip(data, axis=1)  # np.rot90(data, k=1, axes=(0, 1))
+        data = np.flip(data, axis=0)
+
+        # get z axis first
+        data = np.swapaxes(data, 0, -1)
+
+        # sanity check. Appearantly there are some CTs that have wrong resolution metadata...
+        if data.shape[0] < 300:
+
+            # '''
+            # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
+            gt_nib_volume = nib.load(data_path[:-1] + "_lungmask/" + curr_ct.split(data_path)[1].split(".")[0] + "_lungmask.nii.gz")
+            resampled_volume = resample_to_output(gt_nib_volume, res, order=0)
+            gt = resampled_volume.get_data().astype('float32')
+
+            # fix orientation
+            gt = np.flip(gt, axis=1)
+            gt = np.flip(gt, axis=0)
+
+            # get z axis first
+            gt = np.swapaxes(gt, 0, -1)
+
+            gt[gt > 0] = 1
+            data_shapes = data.shape
+            gt_shapes = gt.shape
+            if not data_shapes == gt_shapes:
+                gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
+                               data_shapes[1] / gt_shapes[1],
+                               data_shapes[2] / gt_shapes[2]], order=0)
+            # data[gt == 0] = 0 # mask CT with lung mask # <- DONT MASK, one can easily do that if of interest in batchgen
+            del gt_shapes, data_shapes
+            #'''
+
+            # (mask CT and) crop around lungmask
+            #data[gt == 0] = 0
+            tmp = (gt > 0).astype(int)
+            rmin, rmax, cmin, cmax, zmin, zmax = bbox3D(tmp)
+            data = data[zmin:zmax, cmin:cmax, rmin:rmax]
+            gt = gt[zmin:zmax, cmin:cmax, rmin:rmax]
+
+            # resize to final desired output size
+            if out_size[0] != None:
+                #'''
+                data_shapes = data.shape
+                data = zoom(data, [out_size[0] / data_shapes[0],
+                                   out_size[1] / data_shapes[1],
+                                   out_size[2] / data_shapes[2]], order=1)
+                data_shapes = data.shape
+                gt_shapes = gt.shape
+                gt = zoom(gt, [data_shapes[0] / gt_shapes[0],
+                               data_shapes[1] / gt_shapes[1],
+                               data_shapes[2] / gt_shapes[2]], order=0)
+                #gt = (gt >= 0.5).astype(int)
+            #'''
+
+            # for #3DCNNs (as well as 2DMILs) save entire volume directly, and send that to the batch generator as input
+            if CNN3D_flag or (MIL_type == 2):
+                # save entire volume as array in single file instead of multiple to speed up batchgen
+                with h5py.File(curr_end_path + "1.h5", "w") as ff:
+                    ff.create_dataset("data", data=data.astype(np.float32), compression="gzip", compression_opts=4)
+                    ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
+                    ff.create_dataset("lungmask", data=gt.astype(np.uint8), compression="gzip", compression_opts=4)
+
+            # for slab 3DCNNs and 3DMILs, store data as stack of slabs
+            elif (slab_shape[0] > 1) and (MIL_type == 3):
+                num = slab_shape[0]
+                slabs_data = []
+                slabs_lungmask = []
+                for j in range(int(np.ceil(data.shape[0] / slab_shape[0]))):
+                    tmp = np.zeros(slab_shape, dtype=np.float32)
+                    slab_CT = data[int(num * j):int(num * (j + 1))]
+                    tmp[:slab_CT.shape[0]] = slab_CT
+                    if np.count_nonzero(tmp) == 0:
+                        continue
+                    tmp2 = np.zeros(slab_shape, dtype=np.float32)
+                    slab_GT = gt[int(num * j):int(num * (j + 1))]
+                    tmp2[:slab_GT.shape[0]] = slab_GT
+
+                    slabs_data.append(tmp)
+                    slabs_lungmask.append(tmp2)
+
+                slabs_data = np.array(slabs_data)
+                slabs_lungmask = np.array(slabs_lungmask)
+
+                with h5py.File(curr_end_path + "1.h5", "w") as ff:
+                    ff.create_dataset("data", data=slabs_data.astype(np.float32), compression="gzip", compression_opts=4)
+                    ff.create_dataset("output", data=np.array([class_val]), compression="gzip", compression_opts=4)
+                    ff.create_dataset("lungmask", data=slabs_lungmask.astype(np.uint8), compression="gzip", compression_opts=4)
+
+            else:
+                raise Exception("You defined something wrong in datagen_config.ini, please check that it is correct and compare it with the if statements in the code...\n")
 
 
 if __name__ == '__main__':
@@ -182,6 +190,7 @@ if __name__ == '__main__':
     CNN3D_flag = eval(conf["CNN3D_flag"])  # True
     MIL_type = int(conf["MIL_type"]) # 2 <- for 2DMIL, 3 <- for 3DMIL (slabwise attention classifier
     input_shape = eval(conf["input_shape"])  # (1, 256, 256)
+    slab_shape = eval(conf["slab_shape"])  # (64, 256, 256)
     hu_clip = eval(conf["hu_clip"])  # [-1024, 1024]
     new_spacing = eval(conf["new_spacing"])  # [1., 1., 2.]
     out_size = input_shape
@@ -190,8 +199,10 @@ if __name__ == '__main__':
     data_path_neg = conf["data_path_neg"]  # "/mnt/EncryptedPathology/DeepMIL/healthy_sick/negative/"
     datasets_path = conf["datasets_path"]  # "/home/andrep/workspace/DeepMIL/data/"
     del config
-    end_path = datasets_path + dates + "_binary_healthy_cancer" +\
-               "_shape_" + str(out_size).replace(" ", "") +\
+
+    end_path = datasets_path + dates + "_binary_" + data_path_neg.split("/")[-2].lower() + "_" + data_path_pos.split("/")[-2].lower() +\
+               "_input_" + str(input_shape).replace(" ", "") +\
+               "_slab_" + str(slab_shape).replace(" ", "") +\
                "_huclip_" + str(hu_clip).replace(" ", "") +\
                "_spacing_" + str(new_spacing).replace(" ", "") +\
                "_3DCNN_" + str(CNN3D_flag) +\
@@ -201,19 +212,31 @@ if __name__ == '__main__':
     set_paths = [data_path_neg, data_path_pos]
 
     locs = []
+    ll = []
     for i, curr_set_path in enumerate(set_paths):
         data_path = "/".join(curr_set_path.split("/")[:-2]) + "/"
         print(curr_set_path)
         for path in os.listdir(curr_set_path):
             curr_path = curr_set_path + path
             locs.append([i, curr_path])
+            ll.append(curr_path)
+
+    #print(len(np.unique(ll)))
+    #exit()
 
     if not os.path.exists(end_path):
         os.makedirs(end_path)
 
-    proc_num = int(conf["threads"])  # 16
-    p = mp.Pool(proc_num)
-    num_tasks = len(locs)
-    r = list(tqdm(p.imap(func, locs), "CT", total=num_tasks))  # list(tqdm(p.imap(func,gts),total=num_tasks))
-    p.close()
-    p.join()
+    threads = int(conf["threads"])
+
+    if threads == 1:
+        for loc in tqdm(locs, "CT:"):
+            func(loc)
+    else:
+        proc_num = int(conf["threads"])  # 16
+        p = mp.Pool(proc_num)
+        num_tasks = len(locs)
+        r = list(tqdm(p.imap(func, locs), "CT", total=num_tasks))  # list(tqdm(p.imap(func,gts),total=num_tasks))
+        #r = list(tqdm(p.imap_unordered(func, locs), "CT", total=num_tasks))
+        p.close()
+        p.join()

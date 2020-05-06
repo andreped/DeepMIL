@@ -189,12 +189,17 @@ datasets_path = config["Paths"]["datasets_path"]  # '/home/andrep/workspace/Deep
 configs_path = config["Paths"]["configs_path"]  # '/home/andrep/workspace/DeepMIL/output/configs/'
 
 # Preprocessing
-input_shape = eval(config["Preprocessing"]["input_shape"])  # (1, 256, 256)
+input_shape = eval(config["Preprocessing"]["input_shape"])  # (128, 256, 256)
+slab_shape = eval(config["Preprocessing"]["slab_shape"])  # (16, 256, 256)
 nb_classes = int(config["Preprocessing"]["nb_classes"])  # 2
 classes = np.array(eval(config["Preprocessing"]["classes"]))  # [0, 1]
 new_spacing = eval(config["Preprocessing"]["new_spacing"])  # [1., 1., 2.]
 hu_clip = eval(config["Preprocessing"]["hu_clip"])  # [-1024, 1024]
 datagen_date = config["Preprocessing"]["datagen_date"]  # "040320"
+negative_class = config["Preprocessing"]["negative_class"]  # "healthy"
+positive_class = config["Preprocessing"]["positive_class"]  # "sick
+CNN3D_flag = eval(config["Preprocessing"]["CNN3D_flag"])
+MIL_type = eval(config["Preprocessing"]["MIL_type"])
 slices = int(config["Preprocessing"]["slices"])
 nb_features = int(config["Preprocessing"]["nb_features"])
 
@@ -230,16 +235,19 @@ val_aug = eval(config["Training"]["val_aug"])  # {}
 #metric = config["Training"]["metric"]  # <- This should be set automatically given which model is chosen
 
 # path to training data #  # "_binary_healthy_emphysema" + \
-data_name = datagen_date + "_binary_healthy_cancer" + \
-            "_shape_" + str(input_shape).replace(" ", "") + \
+data_name = datagen_date + "_binary_" + negative_class + "_" + positive_class + \
+            "_input_" + str(input_shape).replace(" ", "") + \
+            "_slab_" + str(slab_shape).replace(" ", "") + \
             "_huclip_" + str(hu_clip).replace(" ", "") + \
-            "_spacing_" + str(new_spacing).replace(" ", "")
+            "_spacing_" + str(new_spacing).replace(" ", "") +\
+            "_3DCNN_" + str(CNN3D_flag) +\
+            "_" + str(MIL_type) + "DMIL"
 #if model_type == "3DCNN" or model_type == "InceptionalMIL2D" or model_type == "2DMIL":
-data_name += "_" + "3DCNN"  # str(model_type)
+#data_name += "_" + "3DCNN"  # str(model_type)
 data_path += data_name + "/"  # NOTE: Updates data_path here to the preprocessed data (!)
 
 # name of output (to save everything as
-name = curr_date + "_" + curr_time + "_" + "binary_healthy_cancer"  # "binary_healthy_emphysema"
+name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class #healthy_cancer"  # "binary_healthy_emphysema"
 
 # save current configuration file with all corresponding data
 config_out_path = configs_path + "config_" + name + ".ini"
@@ -330,7 +338,7 @@ print("\n\n\n TRIED SHUFFLING STUFF \n\n\n")
 
 
 #if not "hema" in model_type: # TODO: THIS SHOULDN'T BE NECESSARY (!)
-if not (("hema" in model_type) or (model_type == "VGGNet2D")):
+if not (("HMIL" in model_type) or (model_type == "VGGNet2D")):
     import tensorflow as tf
     tf.compat.v1.disable_eager_execution()  # TODO: Don't use this with hematomaMIL (!)
 
@@ -386,6 +394,42 @@ elif model_type == "2DAMIL":  # renames from 2DMIL -> 2DAMIL
         mode='max',  # 'auto',
         period=1
     )
+
+elif model_type == "3DAMIL":  # renames from 2DMIL -> 2DAMIL
+    print(input_shape[1:])
+    print(input_shape)
+    print(slab_shape)
+    print(input_shape[0]/slab_shape[0])
+    print((int(input_shape[0]/slab_shape[0]), ) + slab_shape + (1,))
+    network = DeepMIL3D(input_shape=slab_shape + (1,), nb_classes=nb_classes)  # (1,), nb_classes=2)
+    network.set_convolutions(convs)
+    network.set_dense_size(dense_val)
+    network.nb_dense_layers = nb_dense_layers
+    network.set_dense_dropout(dense_dropout)
+    network.set_spatial_dropout(spatial_dropout)
+    network.set_stride = 1
+    network.set_bn(use_bn)
+    network.set_weight_decay(weight_decay)
+    model = network.create()
+
+    # optimization setup
+    model.compile(
+        optimizer=Adam(lr=lr),  # , beta_1=0.9, beta_2=0.999), # <- Default params
+        loss=bag_loss,  # bag_loss
+        metrics=[bag_accuracy]  # [bag_accuracy]
+    )
+
+    # when and how to save model
+    save_best = ModelCheckpoint(
+        save_model_path + 'model_' + name + '.h5',
+        monitor='val_bag_accuracy',
+        verbose=0,
+        save_best_only=True,
+        save_weights_only=True,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+        mode='max',  # 'auto',
+        period=1
+    )
+
 elif model_type == "2DMIL_hybrid":
     network = DeepMIL2D_hybrid(input_shape=(bag_size,) + input_shape[1:] + (1,), nb_classes=2)  # (1,), nb_classes=2)
     network.set_convolutions(convs)
@@ -566,7 +610,7 @@ elif model_type == "3DCNN":
         monitor='val_accuracy',
         verbose=0,
         save_best_only=True,
-        save_weights_only=False,  # <-TODO: DONT REALLY WANT THIS TO BE TRUE, BUT GETS PICKLE ISSUES(?)
+        save_weights_only=False,
         mode='auto',  # 'auto',
         period=1
     )
@@ -656,7 +700,7 @@ if model_type == "2DHMIL" or model_type == "VGGNet2D":  # "hema" in model_type:
             if stop_flag:
                 break
             for i, (x_curr, y_curr) in enumerate(zip(x, y)):
-                y_curr = tf.convert_to_tensor([int(y_curr[0])])
+                y_curr = tf.convert_to_tensor([int(y_curr[0])])  # FIXME (?)
                 y_curr = tf.one_hot(y_curr, 2)
                 grad, loss, pred = step_bag_gradient((x_curr, y_curr), model)
                 for g in range(len(grads)):

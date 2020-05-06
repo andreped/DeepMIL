@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('GTk3Agg')
+#matplotlib.use('GTk3Agg')
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -16,7 +16,7 @@ from scipy.ndimage import binary_fill_holes
 import nibabel as nib
 from nibabel.processing import *
 from copy import deepcopy
-from lungmask import lungmask
+#from lungmask import lungmask
 import shutil
 from data_aug import *
 
@@ -109,14 +109,16 @@ if __name__ == "__main__":
     #dataset = "290320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,1]_3DCNN"
     dataset = "290320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
-    data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/" + dataset + "/"
+    dataset = "050520_binary_healthy_sick_shape_(128,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN_True_2DMIL"
+    #data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/" + dataset + "/"
+    data_path = "/home/andrep/workspace/DeepMIL/data/" + dataset + "/"
 
     features_flag = False  # Default: False
 
     sets = ["negative", "positive"] #["Healthy", "Sick"]
 
     aug = {}  # {'flip':1, 'rotate':10, 'shift':10}
-    aug = {'flip':1, 'rotate':10, 'gamma':[0.5, 1.5]}
+    #aug = {'flip':1, 'rotate':10, 'gamma':[0.5, 1.5]}
 
     locs = os.listdir(data_path)[::-1]
     #locs = locs[3104:]
