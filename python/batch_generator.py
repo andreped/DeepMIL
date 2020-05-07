@@ -27,8 +27,6 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
         for i in range(epochs):
             batch = 0
 
-            # if nb_slices = 1 =>
-
             # shuffle samples for each epoch
             random.shuffle(file_list)  # patients are shuffled, but chunks are after each other
 

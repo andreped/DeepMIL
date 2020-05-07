@@ -28,15 +28,15 @@ def upsample_balance(tmps):
         if curr_length == maxs:
             new_curr = tmp.copy()
         else:
-            maxs = int(maxs * batch_size)
             new_curr = np.tile(tmp, int(ceil(maxs / curr_length)))[:maxs]
         new[i] = new_curr
     return new
 
 
 def balance_amil(tmps, batch_size=1):
-    tmps[0] = np.tile(tmps[0], int(2 ** batch_size)-1)  # TODO: Is this correct? It makes sense for batch_size=2
+    tmps[0] = np.tile(tmps[0], 1)  # TODO: Is this correct? It makes sense for batch_size=2
     return tmps
+
 
 def getClassDistribution(x):
     cc = []
@@ -44,13 +44,16 @@ def getClassDistribution(x):
         cc.append(len(ll))
     return cc
 
+
 def running_average(old_average, cur_val, n):
     return old_average * (n-1)/n + cur_val/n
+
 
 def mil_prediction(pred, n=1):
     i = tf.argsort(pred[:, 1], axis=0)
     i = i[pred.shape[0] - n : pred.shape[0]]
     return (tf.gather(pred, i), i)
+
 
 def step_bag_gradient(inputs, model):
     x, y = inputs
@@ -84,6 +87,7 @@ def step_bag_val(inputs, model):
     loss = tf.reduce_mean(loss)
 
     return loss, pred
+
 
 def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, time_per_step):
     TEMPLATE = "\r{}{}/{} [{:{}<{}}] - ETA: {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.4f} \033[0;0m"
@@ -298,10 +302,15 @@ train_dir = upsample_balance(train_dir)
 val_dir = upsample_balance(val_dir)
 
 # special balancing for AMIL, upweights negative class based on batch size
-if "AMIL" in model_type:
-    train_dir = balance_amil(train_dir, batch_size)
-    val_dir = balance_amil(val_dir, batch_size)
-    #exit()
+# TODO: This isn't good enough for large batch size (!)
+#if "AMIL" in model_type:
+#    train_dir = balance_amil(train_dir, batch_size)
+#    val_dir = balance_amil(val_dir, batch_size)
+#    #exit()
+
+# for AMIL random sampling
+train_dirs = train_dir.copy()
+val_dirs = val_dir.copy()
 
 # distribution after
 print("Class distribution on all sets after balancing: ")
@@ -653,10 +662,15 @@ if model_type == "3DAMIL":
     print(input_shape)
     print(slab_shape)
     print()
-    train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
+    from batch_generator_amil import batch_gen3_amil
+    #print(train_dirs)
+    #print("\n", train_dirs[0], len(train_dirs[0]))
+    #print("\n", train_dirs[1], len(train_dirs[1]))
+    #exit()
+    train_gen = batch_gen3_amil(train_dirs, N=int(np.round((len(train_dirs[0]) * 2) / batch_size)), batch_size=batch_size, aug=train_aug, epochs=epochs,
                            nb_classes=nb_classes, input_shape=input_shape, slab_shape=slab_shape, data_path=data_path,
                            mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
-    val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
+    val_gen = batch_gen3_amil(val_dirs, N=int(np.round((len(val_dirs[0]) * 2) / batch_size)), batch_size=batch_size, aug=val_aug, epochs=epochs,
                          nb_classes=nb_classes, input_shape=input_shape, slab_shape=slab_shape, data_path=data_path,
                          mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
 elif model_type == "MLP":
