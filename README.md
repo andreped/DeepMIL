@@ -1,4 +1,4 @@
-# Clinical-grade Classification of Lung Cancer Patients using Deep Multiple Instance Learning
+# Clinical-grade Classification of Lung Cancer Patients using 3D Deep Multiple Instance Learning
 This is the repo where we will insert the code that we will be using for this paper.
 
 ![picture](figures/XAI_example_nodule.png)
