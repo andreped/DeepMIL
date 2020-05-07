@@ -28,10 +28,15 @@ def upsample_balance(tmps):
         if curr_length == maxs:
             new_curr = tmp.copy()
         else:
+            maxs = int(maxs * batch_size)
             new_curr = np.tile(tmp, int(ceil(maxs / curr_length)))[:maxs]
         new[i] = new_curr
     return new
 
+
+def balance_amil(tmps, batch_size=1):
+    tmps[0] = np.tile(tmps[0], int(2 ** batch_size)-1)  # TODO: Is this correct? It makes sense for batch_size=2
+    return tmps
 
 def getClassDistribution(x):
     cc = []
@@ -288,9 +293,15 @@ print(getClassDistribution(train_dir))
 print(getClassDistribution(val_dir))
 print(getClassDistribution(test_dir))
 
-# balance
+# balance classes
 train_dir = upsample_balance(train_dir)
 val_dir = upsample_balance(val_dir)
+
+# special balancing for AMIL, upweights negative class based on batch size
+if "AMIL" in model_type:
+    train_dir = balance_amil(train_dir, batch_size)
+    val_dir = balance_amil(val_dir, batch_size)
+    #exit()
 
 # distribution after
 print("Class distribution on all sets after balancing: ")
@@ -637,20 +648,31 @@ else:
 print(model.summary())
 
 # define generators for sampling of data
-if not model_type == "MLP":
+if model_type == "3DAMIL":
+    print()
+    print(input_shape)
+    print(slab_shape)
+    print()
     train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
-                           nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
+                           nb_classes=nb_classes, input_shape=input_shape, slab_shape=slab_shape, data_path=data_path,
                            mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
     val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
-                         nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
+                         nb_classes=nb_classes, input_shape=input_shape, slab_shape=slab_shape, data_path=data_path,
                          mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
-else:
+elif model_type == "MLP":
     train_gen = batch_gen_features3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
                                     nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                                     mask_flag=mask_flag, bag_size=bag_size)
     val_gen = batch_gen_features3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
                                   nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                                   mask_flag=mask_flag, bag_size=bag_size)
+else:
+    train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
+                           nb_classes=nb_classes, shapes=input_shape, data_path=data_path,
+                           mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
+    val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
+                         nb_classes=nb_classes, shapes=input_shape, data_path=data_path,
+                         mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
 
 if model_type == "2DHMIL" or model_type == "VGGNet2D":  # "hema" in model_type:
     # metrics
@@ -866,13 +888,27 @@ else:
     # make history logger (logs loss and specifiec metrics at each epoch)
     history_log = LossHistory()
 
-    history = model.fit_generator(
-        train_gen,
-        steps_per_epoch=int(ceil(len(train_dir) / batch_size)),
-        epochs=epochs,
-        validation_data=val_gen,
-        validation_steps=int(ceil(len(val_dir) / batch_size)),
-        callbacks=[save_best, history_log],
-        use_multiprocessing=False,
-        workers=1
-    )
+    if "AMIL" in model_type:
+        w = 2**batch_size
+        history = model.fit_generator(
+            train_gen,
+            steps_per_epoch=int(ceil(len(train_dir) / batch_size)),
+            epochs=epochs,
+            validation_data=val_gen,
+            validation_steps=int(ceil(len(val_dir) / batch_size)),
+            callbacks=[save_best, history_log],
+            use_multiprocessing=False,
+            workers=1,
+            #class_weight={0: (1 - w), 1: w},  # TODO: (NOT SUPPORTED IN AMIL!) Tried to add weights to the loss and accuracy
+        )
+    else:
+        history = model.fit_generator(
+            train_gen,
+            steps_per_epoch=int(ceil(len(train_dir) / batch_size)),
+            epochs=epochs,
+            validation_data=val_gen,
+            validation_steps=int(ceil(len(val_dir) / batch_size)),
+            callbacks=[save_best, history_log],
+            use_multiprocessing=False,
+            workers=1
+        )

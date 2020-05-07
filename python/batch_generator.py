@@ -19,7 +19,7 @@ aug: 		dict with what augmentation as key and what degree of augmentation as val
 		->	'flip': 1, fast
 """
 
-def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), epochs=1,
+def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), slab_shape=(16, 512, 512, 1), epochs=1,
                data_path='', mask_flag=True, bag_size=1, model_type=""):
     
     #input_shape = input_shape[1:]
@@ -116,6 +116,19 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                     if (model_type == "3DCNN"):  #  or ("HMIL" in model_type):
                         batch_bags = np.array(batch_bags)
                         batch_bag_label = np.array(batch_bag_label)
+                    if ("AMIL" in model_type):
+                        batch_bags = np.concatenate(batch_bags)
+                        #batch_bags = np.array(batch_bags)
+                        #batch_bag_label = np.array(batch_bag_label)
+                        #print(batch_bags.shape)
+                       # batch_bags = list(batch_bags)
+                        batch_bags = [batch_bags]
+                        #print("---")
+                        #print(shapes)
+                        #print(np.unique(batch_bag_label))
+                        batch_bag_label = [np.unique(batch_bag_label)[-1] * np.ones(int(input_shape[0]/slab_shape[0]*batch_size))]
+                        #batch_bag_label.append(np.unique(batch_bag_label)[-1] * np.ones(len(batch_bags[0])))
+                        #batch_bag_label = list(batch_bag_label)
                     batch = 0
                     yield batch_bags, batch_bag_label
 

@@ -94,7 +94,7 @@ if __name__ == '__main__':
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # "-1"
 
-    data_path = "/mnt/EncryptedPathology/DeepMIL/datasets/"
+    data_path = "/home/andrep/workspace/DeepMIL/data/"  # "/mnt/EncryptedPathology/DeepMIL/datasets/"
     datasets_path = "/home/andrep/workspace/DeepMIL/output/datasets/"
     save_model_path = "/home/andrep/workspace/DeepMIL/output/models/"
     configs_path = "/home/andrep/workspace/DeepMIL/output/configs/"
@@ -107,11 +107,13 @@ if __name__ == '__main__':
     curr_dataset = "290320_binary_healthy_cancer_shape_(1,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     curr_dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     curr_dataset = "020420_binary_healthy_cancer_shape_(128,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
+    curr_dataset = "060520_binary_healthy_sick-emphysema_(128,256,26,"
     #name = "290320_012340_binary_healthy_cancer"
     name = "300320_020457_binary_healthy_cancer"
     name = "310320_181353_binary_healthy_cancer"
     name = "020420_144240_binary_healthy_cancer"
     name = "040420_181214_binary_healthy_cancer"
+    name = "060520_170709_binary_healthy_sick-emphysema"
 
     #curr_dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     #name = "310320_025826_binary_healthy_cancer"
@@ -150,6 +152,80 @@ if __name__ == '__main__':
     # bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
     use_bn = eval(config["Architecture"]["use_bn"])
     mask_flag = config["Design"]["mask_flag"]
+
+
+
+
+    print("---")
+
+    # Paths
+    data_path = config["Paths"]["data_path"]  # "/home/andrep/workspace/DeepMIL/data/"
+    save_model_path = config["Paths"]["save_model_path"]  # '/home/andrep/workspace/DeepMIL/output/models/'
+    history_path = config["Paths"]["history_path"]  # '/home/andrep/workspace/DeepMIL/output/history/'
+    datasets_path = config["Paths"]["datasets_path"]  # '/home/andrep/workspace/DeepMIL/output/datasets/'
+    configs_path = config["Paths"]["configs_path"]  # '/home/andrep/workspace/DeepMIL/output/configs/'
+
+    # Preprocessing
+    input_shape = eval(config["Preprocessing"]["input_shape"])  # (128, 256, 256)
+    slab_shape = eval(config["Preprocessing"]["slab_shape"])  # (16, 256, 256)
+    nb_classes = int(config["Preprocessing"]["nb_classes"])  # 2
+    classes = np.array(eval(config["Preprocessing"]["classes"]))  # [0, 1]
+    new_spacing = eval(config["Preprocessing"]["new_spacing"])  # [1., 1., 2.]
+    hu_clip = eval(config["Preprocessing"]["hu_clip"])  # [-1024, 1024]
+    datagen_date = config["Preprocessing"]["datagen_date"]  # "040320"
+    negative_class = config["Preprocessing"]["negative_class"]  # "healthy"
+    positive_class = config["Preprocessing"]["positive_class"]  # "sick
+    CNN3D_flag = eval(config["Preprocessing"]["CNN3D_flag"])
+    MIL_type = eval(config["Preprocessing"]["MIL_type"])
+    slices = int(config["Preprocessing"]["slices"])
+    nb_features = int(config["Preprocessing"]["nb_features"])
+
+    # Design
+    val1 = float(config["Design"]["val1"])  # 0.8  # split train 80% of data
+    val2 = float(config["Design"]["val2"])  # 0.9  # split val 90%-val1=90%-80%=10% of data -> remaining test
+    mask_flag = eval(config["Design"]["mask_flag"])  # False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
+
+    # Architecture
+    valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL", "InceptionalMIL2D"]  # TODO: This is not set by configFile
+    model_type = config["Architecture"]["model_type"]
+    convs = eval(config["Architecture"]["convs"])
+    nb_dense_layers = int(config["Architecture"]["nb_dense_layers"])
+    dense_val = int(config["Architecture"]["dense_val"])
+    stride = int(config["Architecture"]["stride"])
+    L_dim = int(config["Architecture"]["L_dim"])
+    dense_dropout = eval(config["Architecture"]["dense_dropout"])
+    spatial_dropout = eval(config["Architecture"]["spatial_dropout"])
+    weight_decay = float(config["Architecture"]["weight_decay"])  # 0.0005 #0.0005
+    useGated = eval(config["Architecture"]["use_gated"])  # False # Default: True
+    bag_size = int(config["Architecture"]["bag_size"])
+    # bag_size = 50  # TODO: This is dynamic, which results in me being forced to use batch size = 1, fix this! I want both dynamic bag_size & bigger batch size
+    use_bn = eval(config["Architecture"]["use_bn"])
+    cnn_dropout = eval(config["Architecture"]["cnn_dropout"])
+
+    # Training configs
+    epochs = int(config["Training"]["epochs"])  # 200
+    lr = eval(config["Training"]["lr"])  # 1e-3, 5e-5
+    batch_size = int(config["Training"]["batch_size"])  # 64
+    train_aug = eval(config["Training"]["train_aug"])  # {} # {'flip': 1, 'rotate': 20, 'shift': int(np.round(window * 0.1))}  # , 'zoom':[0.75, 1.25]}
+    val_aug = eval(config["Training"]["val_aug"])  # {}
+    # loss = config["Training"]["loss"]  # <- This should be set automatically given which model is chosen
+    # metric = config["Training"]["metric"]  # <- This should be set automatically given which model is chosen
+
+    # path to training data #  # "_binary_healthy_emphysema" + \
+    data_name = datagen_date + "_binary_" + negative_class + "_" + positive_class + \
+                "_input_" + str(input_shape).replace(" ", "") + \
+                "_slab_" + str(slab_shape).replace(" ", "") + \
+                "_huclip_" + str(hu_clip).replace(" ", "") + \
+                "_spacing_" + str(new_spacing).replace(" ", "") + \
+                "_3DCNN_" + str(CNN3D_flag) + \
+                "_" + str(MIL_type) + "DMIL"
+    # if model_type == "3DCNN" or model_type == "InceptionalMIL2D" or model_type == "2DMIL":
+    # data_name += "_" + "3DCNN"  # str(model_type)
+    data_path += data_name + "/"  # NOTE: Updates data_path here to the preprocessed data (!)
+
+    curr_dataset = data_path
+
+
 
     print()
     print(model_type)
@@ -214,7 +290,7 @@ if __name__ == '__main__':
         print(sets)
 
         for curr_ct in tqdm(curr_set[:num], "CT:"):
-            path = data_path + curr_dataset + "/" + curr_ct + "/1.h5"
+            path = curr_dataset + curr_ct + "/1.h5"
 
             image = curr_ct
 
@@ -222,6 +298,7 @@ if __name__ == '__main__':
                 data = np.array(f["data"])
                 lungmask = np.array(f["lungmask"])
                 gt = np.array(f["output"])[0]
+                curr_label = gt
 
             if draw_flag:
                 data_orig = data.copy()
@@ -231,7 +308,6 @@ if __name__ == '__main__':
             if mask_flag:
                 data[lungmask == 0] = 0
                 masked = data.copy()
-                curr_label = gt
 
             if model_type == "3DCNN":
                 data_model_input = np.expand_dims(np.expand_dims(data, axis=0), axis=-1)
