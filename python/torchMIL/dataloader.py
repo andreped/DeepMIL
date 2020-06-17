@@ -31,6 +31,8 @@ class LungBags(data.Dataset):
         filename = self.file_list[index]
         f = h5py.File(filename + "/1.h5","r")
         bag = np.array(f["data"]).astype(np.float32)
+        #bag = np.stack((bag,)*3,axis=1)
+        bag = np.expand_dims(bag, axis=1)
         label = np.array(f["output"]).astype(np.float32)
         if self.mask_flag:
             mask = np.array(f["lungmask"]).astype(np.float32)
@@ -169,7 +171,6 @@ if __name__ == "__main__":
     len_bag_list_train = []
     mnist_bags_train = 0
     for batch_idx, (bag, label) in enumerate(train_loader):
-        print(batch_idx)
         len_bag_list_train.append(int(bag.squeeze(0).size()[0]))
         mnist_bags_train += label[0].numpy()[0]
     print('Number positive train bags: {}/{}\n'
