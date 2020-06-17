@@ -13,7 +13,7 @@ from model import Attention, GatedAttention
 
 # Training settings
 parser = argparse.ArgumentParser(description='PyTorch MNIST bags Example')
-parser.add_argument('--epochs', type=int, default=20, metavar='N',
+parser.add_argument('--epochs', type=int, default=30, metavar='N',
                     help='number of epochs to train (default: 10)')
 parser.add_argument('--lr', type=float, default=0.0005, metavar='LR',
                     help='learning rate (default: 0.01)')
@@ -29,7 +29,7 @@ parser.add_argument('--num_bags_train', type=int, default=200, metavar='NTrain',
                     help='number of bags in training set')
 parser.add_argument('--num_bags_test', type=int, default=50, metavar='NTest',
                     help='number of bags in test set')
-parser.add_argument('--seed', type=int, default=1, metavar='S',
+parser.add_argument('--seed', type=int, default=2, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -52,7 +52,7 @@ train_loader = data_utils.DataLoader(MnistBags(target_number=args.target_number,
                                                num_bag=args.num_bags_train,
                                                seed=args.seed,
                                                train=True),
-                                     batch_size=10,
+                                     batch_size=8,
                                      shuffle=True,
                                      **loader_kwargs)
 
