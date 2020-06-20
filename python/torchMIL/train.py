@@ -63,6 +63,30 @@ def show_progbar(cur_step, num_instances, loss, acc, color_code, batch_size, tim
     sys.stdout.flush()
 
 
+def show_progbar_merged(cur_step, num_instances, loss, val_loss, acc, val_acc, color_code, batch_size, time_per_step, time_per_epoch):
+    TEMPLATE = "\r{}{}/{} [{:{}<{}}] - {}:{:02d} ({:>3.1f}s/step) - loss: {:>3.4f} - acc: {:>3.4f} - val_loss: {:>3.4f} - val_acc: {:>3.4f}\033[0;0m"
+    progbar_length = 20
+
+    nb_batches = int(num_instances // batch_size)
+
+    sys.stdout.write(TEMPLATE.format(
+        color_code,
+        cur_step,  # int(cur_step // batch_size),
+        nb_batches,
+        "=" * min(int(progbar_length*(cur_step/nb_batches)), progbar_length),
+        "-",
+        progbar_length,
+        int(time_per_epoch // 60),
+        int(np.round(time_per_epoch % 60)),
+        time_per_step,
+        loss,
+        acc,
+        val_loss,
+        val_acc
+    ))
+    sys.stdout.flush()
+
+
 # Training settings
 # parser = argparse.Argumentparser(description='PyTorch MNIST bags Example')
 # parser.add_argument('--epochs', type=int, default=30, metavar='N',
@@ -121,11 +145,11 @@ MIL_type = 2
 
 # train params
 modelchoice = 1  # 1 : modified non-gated AttentionMIL
-batch_size = 64
+batch_size = 64  # 64
 nepoch = 200
 split_val1 = 0.8
 split_val2 = 0.9
-lr = 1e-3  # 0.0005
+lr = 0.0005  # 1e-3  # 0.0005
 
 # current training run (which saves everything as with this specific pattern)
 name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class
@@ -241,17 +265,20 @@ optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_dec
 
 
 def train(epoch, best_val):
-    model.train()
+    model.train()  # training mode (weights are updated, etc...)
+    time_list_train = []
     train_loss = []
     train_acc = []
+    val_loss = []
+    val_acc = []
     print("\n")
     print("Epoch %d/%d" % (epoch, nepoch))
 
+    # epoch start time
+    epoch_start = timer()
+
     for batch_idx, (data, label) in enumerate(train_loader):
-        time_list_train = []
-        val_loss = []
-        val_acc = []
-        epoch_start = timer()
+        #epoch_start = timer()
         curr_time = timer()
 
         if CUDA:
@@ -279,6 +306,7 @@ def train(epoch, best_val):
 
         show_progbar(batch_idx, train_n, np.mean(train_loss), np.mean(train_acc), "\033[0;0m", batch_size, time_avg)
 
+    # inference on validation set
     with torch.no_grad():
         for (val_data, val_label) in val_loader:
             val_data, val_label = val_data.cuda(), val_label.cuda()
@@ -288,11 +316,37 @@ def train(epoch, best_val):
                 val_loss.append(loss.data[0].cpu().numpy())
                 acc, _ = model.calculate_classification_error(val_datax, val_labelx)
                 val_acc.append(acc)
-        print("val:")
+        #print("val:")
         show_progbar(batch_idx, train_n, np.mean(val_loss), np.mean(val_acc), "\033[0;0m", batch_size, time_avg)
         if np.mean(val_acc) > best_val:  # save best model based on validation set (for user-defined monitor metric)
             best_val = np.mean(val_acc)
             torch.save(model.state_dict(), save_model_path + "pytorch_model_" + name + ".pt")  # "saved/model.pt")
+
+    # epoch end time
+    epoch_end = timer()
+
+    # remove and merge the progbars into one
+    show_progbar_merged(
+        batch_idx,
+        train_n,
+        np.mean(train_loss),
+        np.mean(val_loss),
+        np.mean(train_acc),
+        np.mean(val_acc),
+        "\033[0;0m",
+        batch_size,
+        np.mean(time_list_train),
+        epoch_end - epoch_start
+    )
+
+    with open(history_path + 'pytorch_history_' + name + '.txt', 'a') as F:
+        F.write("{},{:.4f},{:.4f},{:.4f},{:.4f}\n".format(
+            epoch,
+            np.mean(train_loss),
+            np.mean(train_acc),
+            np.mean(val_loss),
+            np.mean(val_acc),
+        ))
 
     return best_val
 
