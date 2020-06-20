@@ -30,10 +30,6 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
             # shuffle samples for each epoch
             random.shuffle(file_list)  # patients are shuffled, but chunks are after each other
 
-            # store CTs
-            batch_bags = []
-            batch_bag_label = []
-
             for filename in file_list:
                 filename = data_path + filename + "/"
 
@@ -116,17 +112,8 @@ def batch_gen3(file_list, batch_size, aug={}, nb_classes=2, input_shape=(16, 512
                         batch_bag_label = np.array(batch_bag_label)
                     if ("AMIL" in model_type):
                         batch_bags = np.concatenate(batch_bags)
-                        #batch_bags = np.array(batch_bags)
-                        #batch_bag_label = np.array(batch_bag_label)
-                        #print(batch_bags.shape)
-                       # batch_bags = list(batch_bags)
                         batch_bags = [batch_bags]
-                        #print("---")
-                        #print(shapes)
-                        #print(np.unique(batch_bag_label))
                         batch_bag_label = [np.unique(batch_bag_label)[-1] * np.ones(int(input_shape[0]/slab_shape[0]*batch_size))]
-                        #batch_bag_label.append(np.unique(batch_bag_label)[-1] * np.ones(len(batch_bags[0])))
-                        #batch_bag_label = list(batch_bag_label)
                     batch = 0
                     yield batch_bags, batch_bag_label
 

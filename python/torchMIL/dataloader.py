@@ -10,7 +10,8 @@ from torchvision import datasets, transforms
 class LungBags(data.Dataset):
     def __init__(self, file_list, aug={}, nb_classes=2,input_shape=(16,512,512,1), slab_shape=(16,512,512,1),mask_flag=False, seed=1, data_path='', train=True):
 
-        self.file_list = [item for sublist in file_list for item in sublist]
+        #self.file_list = [item for sublist in file_list for item in sublist]
+        self.file_list = file_list
         self.aug = aug
         self.nb_classes = nb_classes
         self.input_shape = input_shape
@@ -29,7 +30,7 @@ class LungBags(data.Dataset):
 
     def __getitem__(self, index):
         filename = self.file_list[index]
-        f = h5py.File(filename + "/1.h5","r")
+        f = h5py.File(filename + "/1.h5", "r")
         bag = np.array(f["data"]).astype(np.float32)
         #bag = np.stack((bag,)*3,axis=1)
         bag = np.expand_dims(bag, axis=1)
@@ -37,6 +38,7 @@ class LungBags(data.Dataset):
         if self.mask_flag:
             mask = np.array(f["lungmask"]).astype(np.float32)
             bag[mask == 0] = 0
+        f.close()
 
         return bag, label
 

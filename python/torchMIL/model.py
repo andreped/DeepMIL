@@ -8,30 +8,42 @@ import numpy as np
 class AtnVGG(nn.Module):
     def __init__(self):
         super(AtnVGG, self).__init__()
+        '''
         model = models.vgg11()
         modules = list(model.children())[:-1]
         self.fe = nn.Sequential(*modules)
         for p in self.fe:
             p.required_grad = False
+        '''
         self.L = 500
         self.D = 128
         self.K = 1
 
         self.feature_extractor_part1 = nn.Sequential(
-            nn.Conv2d(1, 8, kernel_size=3,padding=1),
+            nn.Conv2d(1, 8, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(8, 8, kernel_size=3,padding=1),
+            nn.Conv2d(8, 8, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2),
-            nn.Conv2d(8, 16, kernel_size=3,padding=1),
+            nn.Conv2d(8, 16, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv2d(16, 16, kernel_size=3,padding=1),
+            nn.Conv2d(16, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2)
         )
 
         self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(16*64*64, self.L),
+            nn.Linear(64*16*16, self.L), #16*64*64, self.L),
             nn.ReLU(),
         )
 
@@ -49,8 +61,8 @@ class AtnVGG(nn.Module):
     def forward(self, x):
 
         H = self.feature_extractor_part1(x)
-        #H = self.feature_extractor_part1(x)
-        H = H.view(-1, 16*64*64)
+        #H, _  = torch.max(H, 1)
+        H = H.view(-1, 64*16*16) # 16*64*64
         H = self.feature_extractor_part2(H)  # NxL
 
         A = self.attention(H)  # NxK

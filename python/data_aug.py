@@ -85,7 +85,7 @@ def add_rotation3(input_im, max_angle):
 
 # random flip 2d
 def add_flip2(input_im):
-    # randomly choose whether or not to flip
+    # randomly choose whether or not to flipd ..
     if (random_integers(0, 1) == 1):
         # randomly choose which axis to flip against
         # flip_ax = random_integers(0, 1)
@@ -112,11 +112,12 @@ def add_flip3(input_im):
 
 
 def add_rotation2_ll(input_im):
+
     # randomly choose rotation angle: 0, +-90, +,180, +-270
     k = random_integers(0, high=3)
 
     # rotate
-    input_im = np.rot90(input_im, k, axes=(0, 1))
+    input_im = np.rot90(input_im, k, axes=(0, 1))c
 
     return input_im
 

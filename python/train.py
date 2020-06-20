@@ -218,7 +218,7 @@ val2 = float(config["Design"]["val2"])  # 0.9  # split val 90%-val1=90%-80%=10% 
 mask_flag = eval(config["Design"]["mask_flag"])  # False # <- USE FALSE, SOMETHING WRONG WITH LUNGMASK (!)
 
 # Architecture
-valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL", "InceptionalMIL2D"] # TODO: This is not set by configFile
+valid_model_types = ["simple", "2DCNN", "2DMIL", "3DMIL", "2DFCN", "MLP", "3DCNN", "2DMIL_hybrid", "DeepFCNMIL", "InceptionalMIL2D"]  # TODO: This is not set by configFile
 model_type = config["Architecture"]["model_type"]
 convs = eval(config["Architecture"]["convs"])
 nb_dense_layers = int(config["Architecture"]["nb_dense_layers"])
@@ -256,7 +256,7 @@ data_name = datagen_date + "_binary_" + negative_class + "_" + positive_class + 
 data_path += data_name + "/"  # NOTE: Updates data_path here to the preprocessed data (!)
 
 # name of output (to save everything as
-name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class #healthy_cancer"  # "binary_healthy_emphysema"
+name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class  # healthy_cancer"  # "binary_healthy_emphysema"
 
 # save current configuration file with all corresponding data
 config_out_path = configs_path + "config_" + name + ".ini"
@@ -682,10 +682,10 @@ elif model_type == "MLP":
                                   mask_flag=mask_flag, bag_size=bag_size)
 else:
     train_gen = batch_gen3(train_dir, batch_size=batch_size, aug=train_aug, epochs=epochs,
-                           nb_classes=nb_classes, shapes=input_shape, data_path=data_path,
+                           nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                            mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
     val_gen = batch_gen3(val_dir, batch_size=batch_size, aug=val_aug, epochs=epochs,
-                         nb_classes=nb_classes, shapes=input_shape, data_path=data_path,
+                         nb_classes=nb_classes, input_shape=input_shape, data_path=data_path,
                          mask_flag=mask_flag, bag_size=bag_size, model_type=model_type)
 
 if model_type == "2DHMIL" or model_type == "VGGNet2D":  # "hema" in model_type:

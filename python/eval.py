@@ -114,13 +114,15 @@ if __name__ == '__main__':
     name = "020420_144240_binary_healthy_cancer"
     name = "040420_181214_binary_healthy_cancer"
     name = "060520_170709_binary_healthy_sick-emphysema"
+    name = "080520_162222_binary_healthy_sick-emphysema"
+    name = "090520_002618_binary_healthy_sick-emphysema"
 
     #curr_dataset = "300320_binary_healthy_cancer_shape_(64,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
     #name = "310320_025826_binary_healthy_cancer"
     #name = "310320_064512_binary_healthy_cancer"
 
     # whether to make figure or not
-    draw_flag = True
+    draw_flag = False
 
     # read and parse config file
     config = configparser.ConfigParser()
@@ -269,7 +271,7 @@ if __name__ == '__main__':
 
     all_sets = ["train", "val", "test"]
     #all_sets = ["val", "test"]
-    all_sets = ["test"]
+    all_sets = ["val", "test"]
 
     for sets in all_sets:
         #sets = "test"
@@ -282,7 +284,7 @@ if __name__ == '__main__':
 
         #continue
 
-        num = 300
+        num = -1 #300
 
         gts = []
         preds = []
