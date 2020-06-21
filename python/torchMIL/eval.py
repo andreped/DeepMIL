@@ -104,7 +104,7 @@ if __name__ == '__main__':
     curr_dataset = "020420_binary_healthy_cancer_shape_(128,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
 
     # whether to make figure or not
-    draw_flag = True  # False
+    draw_flag = False  # False
     mask_flag = False  # False
 
     print("---")
@@ -128,8 +128,8 @@ if __name__ == '__main__':
     split_val2 = 0.9
     lr = 1e-3  # 0.0005
 
-    curr_date = "200620"
-    curr_time = "164727"
+    curr_date = "210620"
+    curr_time = "151047"
 
     # current dataset path
     data_name = str(datagen_date) + "_binary_" + negative_class + "_" + positive_class + \
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     #model = torch.load(save_model_path + "pytorch_model_" + name + ".pt")
     model_stuff = torch.load(save_model_path + "pytorch_model_" + name + ".pt")
     model.load_state_dict(model_stuff)
-    model.eval()  # inference mode
+    #model.eval()  # inference mode (FIXME: DON'T use this when using BN in the model !!!!) # https://discuss.pytorch.org/t/performance-highly-degraded-when-eval-is-activated-in-the-test-phase/3323/27
 
     all_sets = ["train", "val", "test"]
     #all_sets = ["val", "test"]
