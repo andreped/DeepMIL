@@ -18,33 +18,43 @@ class AtnVGG(nn.Module):
         self.L = 500
         self.D = 128
         self.K = 1
+        self.bn = False
 
         self.feature_extractor_part1 = nn.Sequential(
             nn.Conv2d(1, 8, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(8),  # FIXME: Set to True by default now. Initially this wasn't used. Unknown what BN does in MIL with bags and batches
             nn.Conv2d(8, 8, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(8),
             nn.MaxPool2d(2, stride=2),
             nn.Conv2d(8, 16, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(16),
             nn.Conv2d(16, 16, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(16),
             nn.MaxPool2d(2, stride=2),
             nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(32),
             nn.Conv2d(32, 32, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(32),
             nn.MaxPool2d(2, stride=2),
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(64),
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.ReLU(),
+            nn.BatchNorm2d(64),
             nn.MaxPool2d(2, stride=2)
         )
 
         self.feature_extractor_part2 = nn.Sequential(
             nn.Linear(64*16*16, self.L), #16*64*64, self.L),
             nn.ReLU(),
+            nn.BatchNorm1d(self.L)
         )
 
         self.attention = nn.Sequential(

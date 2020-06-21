@@ -145,11 +145,11 @@ MIL_type = 2
 
 # train params
 modelchoice = 1  # 1 : modified non-gated AttentionMIL
-batch_size = 64  # 64
+batch_size = 16  # 64
 nepoch = 200
 split_val1 = 0.8
 split_val2 = 0.9
-lr = 0.0005  # 1e-3  # 0.0005
+lr = 1e-3  # 0.0005  # 1e-3  # 0.0005
 
 # current training run (which saves everything as with this specific pattern)
 name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class
@@ -195,9 +195,9 @@ for i, tmp in enumerate(tmps):
     test_dir[i] = tmp[val2:]
 
 # merge val and test dirs  # TODO: Need to merge for cancer set as less samples for one class than the other
-# for i, c in enumerate(test_dir):
-#    val_dir[i] += c
-# test_dir = val_dir.copy()
+for i, c in enumerate(test_dir):
+    val_dir[i] += c
+test_dir = val_dir.copy()
 
 # distribution before balancing
 print("Class distribution on all sets before balancing: ")
@@ -262,6 +262,9 @@ if CUDA:
     model.cuda()
 
 optimizer = optim.Adam(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=10e-5)
+
+with open(history_path + 'pytorch_history_' + name + '.txt', 'a') as F:
+    F.write("epochs,loss,acc,val_loss,val_acc\n")
 
 
 def train(epoch, best_val):
