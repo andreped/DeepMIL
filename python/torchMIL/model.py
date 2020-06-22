@@ -52,8 +52,8 @@ class AtnVGG(nn.Module):
         )
 
         self.feature_extractor_part2 = nn.Sequential(
-            nn.Linear(64*16*16, self.L), #16*64*64, self.L),
-            nn.ReLU(),
+            nn.Linear(64*16*16, self.L),  # 16*64*64, self.L),
+            nn.ReLU(),  # nn.AlphaDropout(p=0.5),  # nn.Dropout(p=0.5),
             nn.BatchNorm1d(self.L)
         )
 

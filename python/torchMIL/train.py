@@ -150,6 +150,9 @@ nepoch = 200
 split_val1 = 0.8
 split_val2 = 0.9
 lr = 1e-3  # 0.0005  # 1e-3  # 0.0005
+mask_flag = False  # False
+shuffle_bag = True  # False
+earlyCriteria = 15
 
 # current training run (which saves everything as with this specific pattern)
 name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class
@@ -240,7 +243,9 @@ loader_kwargs = {'num_workers': 1, 'pin_memory': True} if CUDA else {}
 train_loader = data_utils.DataLoader(LungBags(file_list=train_dirs, data_path=datapath,
                                               aug={},
                                               seed=1,
-                                              train=True),
+                                              train=True,
+                                              mask_flag=mask_flag,
+                                              shuffle_bag=shuffle_bag),
                                      batch_size=batch_size,
                                      shuffle=True,
                                      **loader_kwargs)
@@ -248,7 +253,9 @@ train_loader = data_utils.DataLoader(LungBags(file_list=train_dirs, data_path=da
 val_loader = data_utils.DataLoader(LungBags(file_list=val_dirs, data_path=datapath,
                                             aug={},
                                             seed=1,
-                                            train=True),
+                                            train=True,
+                                            mask_flag=mask_flag,
+                                            shuffle_bag=shuffle_bag),
                                    batch_size=batch_size,
                                    shuffle=True,
                                    **loader_kwargs)
@@ -267,13 +274,14 @@ with open(history_path + 'pytorch_history_' + name + '.txt', 'a') as F:
     F.write("epochs,loss,acc,val_loss,val_acc\n")
 
 
-def train(epoch, best_val):
+def train(epoch, best_val, early):
     model.train()  # training mode (weights are updated, etc...)
     time_list_train = []
     train_loss = []
     train_acc = []
     val_loss = []
     val_acc = []
+    early += 1
     print("\n")
     print("Epoch %d/%d" % (epoch, nepoch))
 
@@ -324,6 +332,7 @@ def train(epoch, best_val):
         if np.mean(val_acc) > best_val:  # save best model based on validation set (for user-defined monitor metric)
             best_val = np.mean(val_acc)
             torch.save(model.state_dict(), save_model_path + "pytorch_model_" + name + ".pt")  # "saved/model.pt")
+            early = 0  # reset early stopping, start again
 
     # epoch end time
     epoch_end = timer()
@@ -351,7 +360,7 @@ def train(epoch, best_val):
             np.mean(val_acc),
         ))
 
-    return best_val
+    return best_val, early
 
     # calculate loss and error for epoch
     # train_loss /= len(train_loader)/batch_size
@@ -392,7 +401,12 @@ def test():
 if __name__ == "__main__":
     print('Start Training')
     best_val_acc = 0.0
+    early_val = 0
     for epoch in range(1, nepoch + 1):
-        best_val_acc = train(epoch, best_val_acc)
-    print('Start Testing')
-    test()
+        best_val_acc, early_val = train(epoch, best_val_acc, early_val)
+        if early_val == earlyCriteria:
+            print("Stopping criteria reached (early stopping).")
+            break
+
+    #print('Start Testing')
+    #test()

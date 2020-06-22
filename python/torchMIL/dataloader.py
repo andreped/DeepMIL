@@ -8,7 +8,7 @@ import h5py
 from torchvision import datasets, transforms
 
 class LungBags(data.Dataset):
-    def __init__(self, file_list, aug={}, nb_classes=2,input_shape=(16,512,512,1), slab_shape=(16,512,512,1),mask_flag=False, seed=1, data_path='', train=True):
+    def __init__(self, file_list, aug={}, nb_classes=2, input_shape=(16, 512, 512, 1), slab_shape=(16,512,512,1), mask_flag=False, seed=1, data_path='', train=True, shuffle_bag=False):
 
         #self.file_list = [item for sublist in file_list for item in sublist]
         self.file_list = file_list
@@ -18,6 +18,7 @@ class LungBags(data.Dataset):
         self.mask_flag = mask_flag
         self.bag_size = input_shape[2]
         self.data_path = data_path
+        self.shuffle_bag = shuffle_bag
 
         self.r = np.random.RandomState(seed)
 
@@ -32,12 +33,16 @@ class LungBags(data.Dataset):
         filename = self.file_list[index]
         f = h5py.File(filename + "/1.h5", "r")
         bag = np.array(f["data"]).astype(np.float32)
-        #bag = np.stack((bag,)*3,axis=1)
-        bag = np.expand_dims(bag, axis=1)
-        label = np.array(f["output"]).astype(np.float32)
         if self.mask_flag:
             mask = np.array(f["lungmask"]).astype(np.float32)
             bag[mask == 0] = 0
+        if self.shuffle_bag:
+            slice_order = list(range(bag.shape[0]))
+            np.random.shuffle(slice_order)
+            bag = bag[slice_order]
+        #bag = np.stack((bag,)*3,axis=1)
+        bag = np.expand_dims(bag, axis=1)
+        label = np.array(f["output"]).astype(np.float32)
         f.close()
 
         return bag, label
