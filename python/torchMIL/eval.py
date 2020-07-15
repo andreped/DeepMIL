@@ -104,8 +104,9 @@ if __name__ == '__main__':
     curr_dataset = "020420_binary_healthy_cancer_shape_(128,256,256)_huclip_[-1024,1024]_spacing_[1,1,2]_3DCNN"
 
     # whether to make figure or not
-    draw_flag = False  # False
-    mask_flag = False  # False
+    draw_flag = False    # False
+    mask_flag = False    # False
+    shuffle_flag = True  # False
 
     print("---")
 
@@ -128,8 +129,8 @@ if __name__ == '__main__':
     split_val2 = 0.9
     lr = 1e-3  # 0.0005
 
-    curr_date = "210620"
-    curr_time = "151047"
+    curr_date = "150720"  # "150720"
+    curr_time = "170708"  # "094443"
 
     # current dataset path
     data_name = str(datagen_date) + "_binary_" + negative_class + "_" + positive_class + \
@@ -163,7 +164,25 @@ if __name__ == '__main__':
     model.load_state_dict(model_stuff)
     #model.eval()  # inference mode (FIXME: DON'T use this when using BN in the model !!!!) # https://discuss.pytorch.org/t/performance-highly-degraded-when-eval-is-activated-in-the-test-phase/3323/27
 
-    all_sets = ["train", "val", "test"]
+    #model = model.train()
+
+    #model.children()[1].parameters().requires_grad = False # freeze dropout layer
+
+    '''
+    for cnt, child in enumerate(model.children()):
+        if cnt == 0:
+            for cnt_0, param in enumerate(child.parameters()):
+                if ((cnt_0 > 4) and (((cnt_0 + 1) % 8) == 0)):
+                    param.requires_grad = False
+        if cnt == 1:
+            for cnt_1, param in enumerate(child.parameters()):
+                if (cnt_1 == 2):
+                    param.required_grad = False
+                    print(param)
+    '''
+
+
+    all_sets = ["train", "val"]  #, "test"]
     #all_sets = ["val", "test"]
 
     for sets in all_sets:
@@ -203,6 +222,12 @@ if __name__ == '__main__':
             if mask_flag:
                 data[lungmask == 0] = 0
                 masked = data.copy()
+
+            # shuffle flag
+            if shuffle_flag:
+                slice_order = list(range(data.shape[0]))
+                np.random.shuffle(slice_order)
+                data = data[slice_order]
 
             # inference
             bag = np.expand_dims(data, axis=1)

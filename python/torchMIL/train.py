@@ -145,14 +145,14 @@ MIL_type = 2
 
 # train params
 modelchoice = 1  # 1 : modified non-gated AttentionMIL
-batch_size = 16  # 64
+batch_size = 16  # 16
 nepoch = 200
 split_val1 = 0.8
 split_val2 = 0.9
 lr = 1e-3  # 0.0005  # 1e-3  # 0.0005
 mask_flag = False  # False
 shuffle_bag = True  # False
-earlyCriteria = 15
+earlyCriteria = 100  # 15 <- early stopping criteria
 
 # current training run (which saves everything as with this specific pattern)
 name = curr_date + "_" + curr_time + "_" + "binary_" + negative_class + "_" + positive_class

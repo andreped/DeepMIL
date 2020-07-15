@@ -28,6 +28,7 @@ class AtnVGG(nn.Module):
             nn.ReLU(),
             nn.BatchNorm2d(8),
             nn.MaxPool2d(2, stride=2),
+            #nn.Dropout(p=0.2),
             nn.Conv2d(8, 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(16),
@@ -35,6 +36,7 @@ class AtnVGG(nn.Module):
             nn.ReLU(),
             nn.BatchNorm2d(16),
             nn.MaxPool2d(2, stride=2),
+            #nn.Dropout(p=0.2),
             nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(32),
@@ -42,18 +44,29 @@ class AtnVGG(nn.Module):
             nn.ReLU(),
             nn.BatchNorm2d(32),
             nn.MaxPool2d(2, stride=2),
+            #nn.Dropout(p=0.2),
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(64),
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.BatchNorm2d(64),
-            nn.MaxPool2d(2, stride=2)
+            nn.MaxPool2d(2, stride=2),
+            #nn.Dropout(p=0.2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d(2, stride=2),
+            #nn.Dropout(p=0.2),
         )
 
         self.feature_extractor_part2 = nn.Sequential(
             nn.Linear(64*16*16, self.L),  # 16*64*64, self.L),
-            nn.ReLU(),  # nn.AlphaDropout(p=0.5),  # nn.Dropout(p=0.5),
+            nn.ReLU(),  # nn.AlphaDropout(p=0.4),  # nn.Dropout(p=0.5),
+            #nn.Dropout(p=0.5),
             nn.BatchNorm1d(self.L)
         )
 

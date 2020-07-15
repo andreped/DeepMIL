@@ -88,7 +88,7 @@ def func(path):
         data = np.swapaxes(data, 0, -1)
 
         # sanity check. Appearantly there are some CTs that have wrong resolution metadata...
-        if data.shape[0] < 300:
+        if data.shape[0] < 1200:  # <- this should not happen
 
             # '''
             # get lung mask, but don't mask the data. Add it in the generated data file, to be used in batchgen if of interest
