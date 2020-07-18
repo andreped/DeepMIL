@@ -844,7 +844,7 @@ if model_type == "2DHMIL" or model_type == "VGGNet2D":  # "hema" in model_type:
 
         if convergence_epoch_counter >= CONVERGENCE_EPOCH_LIMIT:
             print("\nCurrent Fold: {}\
-                    \nNo improvement in {} epochs, model is converged.\
+                    \nNo improvement in {} epochs, model has converged.\
                     \nModel achieved best val loss at epoch {}.\
                     \nTrain Loss: {:.4f} Train Acc: {:.2%}\
                     \nVal   Loss: {:.4f} Val   Acc: {:.2%}".format(
